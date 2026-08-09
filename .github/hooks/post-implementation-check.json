@@ -1,0 +1,12 @@
+{
+    "version": 1,
+    "hooks": {
+        "agentStop": [
+            {
+                "type": "command",
+                "bash": "bash .github/hooks/scripts/post-implementation-check.sh",
+                "timeoutSec": 600
+            }
+        ]
+    }
+}

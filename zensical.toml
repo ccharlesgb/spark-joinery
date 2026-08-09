@@ -1,0 +1,13 @@
+[project]
+site_name = "pyspark-schemas"
+site_description = "pyspark-schemas documentation"
+site_author = "Connor Charles"
+
+[project.theme]
+language = "en"
+features = [
+    "content.code.copy",
+    "navigation.footer",
+    "navigation.instant",
+    "search.highlight",
+]

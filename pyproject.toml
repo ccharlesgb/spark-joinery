@@ -1,0 +1,46 @@
+[project]
+name = "pyspark-schemas"
+version = "0.1.0"
+description = "Schema safety for pyspark transformations"
+authors = [
+    { name = "Connor Charles", email = "ccharles.gb@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "pyspark>=4.2.0",
+]
+
+[tool.pyrefly]
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]
+search-path = [
+    "src",
+    "examples",
+]
+
+[project.optional-dependencies]
+cli = [
+    "typer>=0.19.2",
+]
+pydantic = [
+    "pydantic>=2.0.0",
+]
+
+[project.scripts]
+pyspark-schemas = "pyspark-schemas:main"
+
+[build-system]
+requires = ["uv_build>=0.9.27,<0.10.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+    "pydantic>=2.0.0",
+    "pyrefly>=1.2.0",
+    "pytest>=9.1.0",
+    "ruff>=0.15.17",
+    "zensical>=0.0.45",
+]

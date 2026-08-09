@@ -1,0 +1,25 @@
+# Python cache and build outputs
+__pycache__/
+*.py[codz]
+*.egg-info/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.cache/
+
+# Docs output
+site/
+
+# Editor temp
+tempCodeRunnerFile.py
+
+# Example Outputs
+__output

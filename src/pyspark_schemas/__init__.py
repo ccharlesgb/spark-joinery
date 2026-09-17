@@ -6,13 +6,15 @@ from .pipeline import (
     PipelineExecutionError,
     Step,
 )
+from .transform import transform
 
 __all__ = [
     "Collection",
     "Context",
     "ExecutablePipeline",
     "Pipeline",
-    "PipelineContext",
     "PipelineExecutionError",
+    "PipelineContext",
     "Step",
+    "transform",
 ]

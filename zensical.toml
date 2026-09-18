@@ -1,7 +1,10 @@
 [project]
 site_name = "spark-joinery"
+site_url = "https://ccharlesgb.github.io/spark-joinery/"
 site_description = "spark-joinery documentation"
 site_author = "Connor Charles"
+repo_url = "https://github.com/ccharlesgb/spark-joinery"
+repo_name = "ccharlesgb/spark-joinery/"
 
 [project.theme]
 language = "en"
@@ -9,5 +12,41 @@ features = [
     "content.code.copy",
     "navigation.footer",
     "navigation.instant",
+    "navigation.instant.progress",
+    "navigation.tabs",
+    "navigation.tabs.sticky",
+    "navigation.path",
+    "navigation.top",
+    "navigation.tracking",
     "search.highlight",
+   
 ]
+
+# Palette toggle for light mode
+[[project.theme.palette]] 
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+# Palette toggle for dark mode
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[project.markdown_extensions]
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.snippets = {}
+pymdownx.superfences = {}
+admonition = {}
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/ccharlesgb/spark-joinery"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/linkedin"
+link = "https://www.linkedin.com/in/connor-charles-1a7956123/"

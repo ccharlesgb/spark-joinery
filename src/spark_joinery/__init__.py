@@ -7,6 +7,7 @@ from .pipeline import (
     Step,
 )
 from .transform import transform
+from .schemas import coerce_dataframe, get_dataframe, get_spark_schema_from_model
 
 __all__ = [
     "Collection",
@@ -17,4 +18,7 @@ __all__ = [
     "PipelineContext",
     "Step",
     "transform",
+    "coerce_dataframe",
+    "get_dataframe",
+    "get_spark_schema_from_model",
 ]

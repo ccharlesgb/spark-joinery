@@ -1,8 +1,9 @@
 from dataclasses import dataclass
-from typing import Generator, Optional
+from typing import Annotated, Generator, Optional
 
 import pytest
 from pyspark.sql import SparkSession, types
+from pyspark.testing import assertDataFrameEqual
 from pydantic import BaseModel
 
 from spark_joinery import schemas
@@ -19,21 +20,122 @@ def spark() -> Generator[SparkSession, None, None]:
     spark.stop()
 
 
-def test_get_spark_schema_from_dataclass_raises_value_error_for_non_dataclass():
-    class NotADataclass:
-        pass
-
-    with pytest.raises(ValueError, match="NotADataclass is not a dataclass"):
-        schemas.get_spark_schema_from_dataclass(NotADataclass)
-
-
-def test_get_spark_schema_from_dataclass_returns_struct_type_for_dataclass():
+def test_get_dataframe_makes_spark_dataframe(spark: SparkSession):
     @dataclass
     class MyDataClass:
         field1: int
         field2: str
 
-    actual_schema = schemas.get_spark_schema_from_dataclass(MyDataClass)
+    rows = [MyDataClass(1, "a"), MyDataClass(2, "b")]
+    dataframe = schemas.get_dataframe(spark, MyDataClass, rows)
+
+    expected_schema = types.StructType(
+        [
+            types.StructField("field1", types.IntegerType(), False),
+            types.StructField("field2", types.StringType(), False),
+        ]
+    )
+
+    assertDataFrameEqual(
+        dataframe, spark.createDataFrame([(1, "a"), (2, "b")], expected_schema)
+    )
+
+
+def test_get_dataframe_with_nested_schemas(spark: SparkSession):
+    @dataclass
+    class NestedDataClass:
+        nested_field1: int
+        nested_field2: str
+
+    @dataclass
+    class MyDataClass:
+        top_level: str
+        nested: NestedDataClass
+
+    rows = [
+        MyDataClass("a", NestedDataClass(1, "x")),
+        MyDataClass("b", NestedDataClass(2, "y")),
+    ]
+    dataframe = schemas.get_dataframe(spark, MyDataClass, rows)
+
+    expected_schema = types.StructType(
+        [
+            types.StructField("top_level", types.StringType(), False),
+            types.StructField(
+                "nested",
+                types.StructType(
+                    [
+                        types.StructField("nested_field1", types.IntegerType(), False),
+                        types.StructField("nested_field2", types.StringType(), False),
+                    ]
+                ),
+                False,
+            ),
+        ]
+    )
+
+    assertDataFrameEqual(
+        dataframe,
+        spark.createDataFrame([("a", (1, "x")), ("b", (2, "y"))], expected_schema),
+    )
+
+
+def test_get_dataframe_raises_value_error_for_rows_with_different_schemas(
+    spark: SparkSession,
+):
+    @dataclass
+    class MyDataClass:
+        field1: int
+        field2: str
+
+    @dataclass
+    class MyDataClass2:
+        field1: int
+
+    rows = [MyDataClass(1, "a"), MyDataClass2(2)]
+    with pytest.raises(
+        ValueError, match="Row 1 of type MyDataClass2. Expected type MyDataClass"
+    ):
+        schemas.get_dataframe(spark, MyDataClass, rows)
+
+
+def test_get_dataframe_makes_spark_dataframe_from_pydantic_rows(spark: SparkSession):
+    class Product(BaseModel):
+        field1: int
+        field2: str
+
+    rows = [Product(field1=1, field2="a"), Product(field1=2, field2="b")]
+    dataframe = schemas.get_dataframe(spark, Product, rows)
+
+    expected_schema = types.StructType(
+        [
+            types.StructField("field1", types.IntegerType(), True),
+            types.StructField("field2", types.StringType(), True),
+        ]
+    )
+
+    assertDataFrameEqual(
+        dataframe, spark.createDataFrame([(1, "a"), (2, "b")], expected_schema)
+    )
+
+
+def test_get_spark_schema_from_model_raises_value_error_for_non_schema_model():
+    class NotADataclass:
+        pass
+
+    with pytest.raises(
+        ValueError, match="NotADataclass is neither a dataclass nor a pydantic model"
+    ):
+        schemas.get_spark_schema_from_model(NotADataclass)
+
+
+def test_get_spark_schema_from_model_returns_struct_type_for_dataclass():
+    @dataclass
+    class MyDataClass:
+        field1: int
+        field2: str
+
+    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
     expected_schema = types.StructType(
         [
             types.StructField("field1", types.IntegerType(), True),
@@ -43,13 +145,37 @@ def test_get_spark_schema_from_dataclass_returns_struct_type_for_dataclass():
     assert actual_schema == expected_schema
 
 
-def test_get_spark_schema_from_dataclass_returns_struct_type_for_dataclass_with_optional_fields():
+def test_get_spark_schema_from_model_honors_annotated_spark_type():
+    @dataclass
+    class MyDataClass:
+        field1: Annotated[float, types.DoubleType()]
+
+    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
+
+    assert actual_schema == types.StructType(
+        [types.StructField("field1", types.DoubleType(), True)]
+    )
+
+
+def test_get_spark_schema_from_model_honors_annotated_array_element_type():
+    @dataclass
+    class MyDataClass:
+        field1: list[Annotated[float, types.DoubleType()]]
+
+    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
+
+    assert actual_schema == types.StructType(
+        [types.StructField("field1", types.ArrayType(types.DoubleType(), True), True)]
+    )
+
+
+def test_get_spark_schema_from_model_returns_struct_type_for_dataclass_with_optional_fields():
     @dataclass
     class MyDataClass:
         field1: Optional[int]
         field2: str | None
 
-    actual_schema = schemas.get_spark_schema_from_dataclass(MyDataClass)
+    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
     expected_schema = types.StructType(
         [
             types.StructField("field1", types.IntegerType(), True),
@@ -59,7 +185,7 @@ def test_get_spark_schema_from_dataclass_returns_struct_type_for_dataclass_with_
     assert actual_schema == expected_schema
 
 
-def test_get_spark_schema_from_dataclass_returns_nested_schema():
+def test_get_spark_schema_from_model_returns_nested_schema():
     @dataclass
     class NestedDataClass:
         nested_field1: int
@@ -70,7 +196,7 @@ def test_get_spark_schema_from_dataclass_returns_nested_schema():
         field1: NestedDataClass
         field2: str
 
-    actual_schema = schemas.get_spark_schema_from_dataclass(MyDataClass)
+    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
     expected_schema = types.StructType(
         [
             types.StructField(
@@ -105,7 +231,7 @@ def test_get_spark_schema_with_array_fields():
             list[Optional[NestedDataClass]]
         ]
 
-    actual_schema = schemas.get_spark_schema_from_dataclass(MyDataClass)
+    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
     expected_schema = types.StructType(
         [
             types.StructField(
@@ -154,45 +280,6 @@ def test_get_spark_schema_with_array_fields():
     assert actual_schema == expected_schema
 
 
-def test_dataframe_is_schema_returns_true_for_matching_schema(spark: SparkSession):
-    @dataclass
-    class MyDataClass:
-        field1: int
-        field2: str
-
-    schema = schemas.get_spark_schema_from_dataclass(MyDataClass)
-    dataframe = spark.createDataFrame([(1, "a")], schema)
-
-    assert schemas.dataframe_is_schema(dataframe, MyDataClass)
-
-
-def test_dataframe_is_schema_returns_false_for_non_matching_schema(spark: SparkSession):
-    @dataclass
-    class MyDataClass:
-        field1: int
-        field2: str
-
-    dataframe = spark.createDataFrame(
-        [(1,)],
-        types.StructType([types.StructField("field1", types.IntegerType(), False)]),
-    )
-
-    assert not schemas.dataframe_is_schema(dataframe, MyDataClass)
-
-
-def test_dataframe_is_schema_raises_for_non_dataclass(spark: SparkSession):
-    class NotADataclass:
-        pass
-
-    dataframe = spark.createDataFrame(
-        [(1,)],
-        types.StructType([types.StructField("field1", types.IntegerType(), False)]),
-    )
-
-    with pytest.raises(ValueError, match="NotADataclass is not a dataclass"):
-        schemas.dataframe_is_schema(dataframe, NotADataclass)
-
-
 def test_get_spark_schema_from_model_returns_struct_type_for_pydantic_model():
     class Product(BaseModel):
         product_id: int
@@ -233,19 +320,6 @@ def test_get_spark_schema_from_model_returns_nested_schema_for_pydantic_models()
         ]
     )
     assert actual_schema == expected_schema
-
-
-def test_dataframe_is_model_schema_returns_true_for_pydantic_model(
-    spark: SparkSession,
-):
-    class Product(BaseModel):
-        product_id: int
-        product_name: str
-
-    schema = schemas.get_spark_schema_from_model(Product)
-    dataframe = spark.createDataFrame([(1, "a")], schema)
-
-    assert schemas.dataframe_is_model_schema(dataframe, Product)
 
 
 # --- coerce_dataframe: strict ---

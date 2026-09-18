@@ -4,7 +4,7 @@ from typing import Annotated, Generator
 import pytest
 from pyspark.sql import DataFrame, SparkSession, types
 
-from spark_joinery import fixtures, schemas
+from spark_joinery import schemas
 from spark_joinery.dependencies import Context
 from spark_joinery.transform import _inspect_transform, transform
 
@@ -76,8 +76,8 @@ def test_transform_accepts_matching_input_and_output_schemas(spark: SparkSession
     class OutputRow:
         field1: int
 
-    input_schema = schemas.get_spark_schema_from_dataclass(InputRow)
-    output_schema = schemas.get_spark_schema_from_dataclass(OutputRow)
+    input_schema = schemas.get_spark_schema_from_model(InputRow)
+    output_schema = schemas.get_spark_schema_from_model(OutputRow)
     input_df = spark.createDataFrame([(1, "a")], input_schema)
 
     @transform
@@ -119,7 +119,7 @@ def test_transform_raises_for_output_schema_mismatch(spark: SparkSession):
     class OutputRow:
         field1: int
 
-    input_df = fixtures.get_dataframe(spark, InputRow, [InputRow(1, "a")])
+    input_df = schemas.get_dataframe(spark, InputRow, [InputRow(1, "a")])
 
     @transform(validate_output="strict")
     def my_function(
@@ -159,7 +159,7 @@ def test_transform_can_disable_output_validation(spark: SparkSession):
     class OutputRow:
         field1: int
 
-    input_df = fixtures.get_dataframe(spark, InputRow, [InputRow(1)])
+    input_df = schemas.get_dataframe(spark, InputRow, [InputRow(1)])
 
     @transform(validate_output=None)
     def my_function(
@@ -182,7 +182,7 @@ def test_transform_default_project_all_drops_extra_output_columns(
     class OutputRow:
         field1: int
 
-    input_df = fixtures.get_dataframe(spark, InputRow, [InputRow(1, "a")])
+    input_df = schemas.get_dataframe(spark, InputRow, [InputRow(1, "a")])
 
     @transform
     def my_function(

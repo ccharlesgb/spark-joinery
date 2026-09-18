@@ -25,10 +25,10 @@ jobs:
         uses: extractions/setup-just@v2
 
       - name: Install dependencies
-        run: just install
+        run: just --shell bash install
 
       - name: Run checks
-        run: just check
+        run: just --shell bash check
 
       - name: Build wheel
         run: uv build

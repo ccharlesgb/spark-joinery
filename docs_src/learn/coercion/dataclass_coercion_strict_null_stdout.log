@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "/Users/connorcharles/code/spark-joinery/src/spark_joinery/schemas.py", line 99, in _coerce_strict
+    assertSchemaEqual(dataframe.schema, schema, ignoreNullable=ignore_nullable)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pyspark.errors.exceptions.base.PySparkAssertionError: [DIFFERENT_SCHEMA] Schemas do not match.
+--- actual
++++ expected
+- StructType([StructField('customer_id', StringType(), False), StructField('name', StringType(), False)])
+?                                                      ^^^^                                      ^^^^
+
++ StructType([StructField('customer_id', StringType(), True), StructField('name', StringType(), True)])
+?                                                      ^^^                                      ^^^
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/connorcharles/code/spark-joinery/docs_src/learn/coercion/dataclass_coercion_strict_null.py", line 27, in <module>
+    coerce_dataframe_to_model(df, Customer, mode="strict_null")
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Schema mismatch
+

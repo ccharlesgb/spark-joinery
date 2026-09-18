@@ -1,0 +1,17 @@
++-----------+--------+
+|customer_id| address|
++-----------+--------+
+|          1|{London}|
+|          2| {Paris}|
++-----------+--------+
+
+StructType([
+    StructField('customer_id', IntegerType(), True),
+    StructField(
+        'address',
+        StructType([
+            StructField('city', StringType(), True)
+        ]),
+        False
+    )
+])

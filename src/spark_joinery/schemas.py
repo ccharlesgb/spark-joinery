@@ -189,6 +189,12 @@ _MODE_HANDLERS: dict[
 
 
 def coerce_dataframe(
-    dataframe: DataFrame, schema: types.StructType, mode: CoercionMode
+    dataframe: DataFrame, schema: types.StructType, mode: CoercionMode = "project_all"
 ) -> DataFrame:
     return _MODE_HANDLERS[mode](dataframe, schema)
+
+
+def coerce_dataframe_to_model(
+    dataframe: DataFrame, klass: type[T], mode: CoercionMode = "project_all"
+) -> DataFrame:
+    return coerce_dataframe(dataframe, get_spark_schema_from_model(klass), mode)

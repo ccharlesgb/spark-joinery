@@ -1,0 +1,11 @@
++-----------+-----+
+|customer_id| name|
++-----------+-----+
+|          1|Alice|
+|          2|  Bob|
++-----------+-----+
+
+StructType([
+    StructField('customer_id', StringType(), True),
+    StructField('name', StringType(), True)
+])

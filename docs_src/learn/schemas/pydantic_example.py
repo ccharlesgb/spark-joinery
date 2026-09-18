@@ -5,6 +5,7 @@ from decimal import Decimal
 from pyspark.sql.types import DecimalType
 from spark_joinery import pretty_print_struct_type
 
+
 class Customer(BaseModel):
     customer_id: str
     name: str

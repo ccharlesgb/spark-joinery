@@ -18,7 +18,7 @@ From this we have no idea what the inputs or outputs of the transformation are. 
 can make it much clearer:
 
 ```python
---8<-- "docs_src/index.py:5:"
+--8<-- "docs_src/index/intro.py:5:"
 ```
 
 Using a schema first approach makes it much clearer what this transformation should. For both you and a coding agent.
@@ -35,4 +35,17 @@ pip install spark-joinery
 uv install spark-joinery
 ```
 
+## Example
 
+A minimum example pipeline is:
+
+```python
+--8<-- "docs_src/index/minimum_example.py"
+```
+
+Which outputs:
+
+| order_date | customer_id | total_order_value |
+|------------|-------------|-------------------|
+| 2026-09-18 | customer_1  | 100.0             |
+| 2026-09-18 | customer_2  | 200.0             |

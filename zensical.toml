@@ -6,6 +6,16 @@ site_author = "Connor Charles"
 repo_url = "https://github.com/ccharlesgb/spark-joinery"
 repo_name = "ccharlesgb/spark-joinery/"
 
+nav = [
+  { "Spark Joinery" = "index.md" },
+  { "Learn" = [
+    "learn/index.md",
+    "learn/schemas.md",
+    "learn/transform.md",
+    "learn/pipelines.md",
+  ] },
+]
+
 [project.theme]
 language = "en"
 features = [

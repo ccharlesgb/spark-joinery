@@ -8,6 +8,7 @@ from pyspark.sql import DataFrame, SparkSession, types
 
 from .collection import Collection
 from .dependencies import Context, PipelineContext
+from .schemas import CoercionMode
 
 Transform = Callable[..., DataFrame | None]
 
@@ -103,15 +104,13 @@ class Pipeline:
         self,
         f=None,
         *,
-        validate_input: bool = True,
-        validate_output: bool = True,
-        ignore_nullable: bool = True,
+        validate_input: CoercionMode | None = "project_all",
+        validate_output: CoercionMode | None = "project_all",
     ):
         return self._collection.transform(
             f,
             validate_input=validate_input,
             validate_output=validate_output,
-            ignore_nullable=ignore_nullable,
         )
 
     def _resolve_spec(self, transform: Transform):

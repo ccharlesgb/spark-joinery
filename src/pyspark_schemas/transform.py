@@ -7,19 +7,19 @@ from typing import (
     Callable,
     ParamSpec,
     TypeVar,
+    cast,
     get_args,
     get_origin,
     get_type_hints,
     overload,
 )
 
-from pyspark.errors import PySparkAssertionError
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import types
-from pyspark.testing import assertSchemaEqual
 
 from . import schemas
 from .dependencies import Context
+from .schemas import CoercionMode
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -123,9 +123,8 @@ def _wrap_transform(
     fn: Callable[P, R],
     spec: TransformSpec,
     *,
-    validate_input: bool,
-    validate_output: bool,
-    ignore_nullable: bool,
+    validate_input: CoercionMode | None,
+    validate_output: CoercionMode | None,
 ) -> Callable[P, R]:
     signature = inspect.signature(fn)
 
@@ -134,7 +133,7 @@ def _wrap_transform(
         bound_arguments = signature.bind(*args, **kwds)
         bound_arguments.apply_defaults()
 
-        if validate_input:
+        if validate_input is not None:
             for parameter_name, expected_schema in spec.input_schemas.items():
                 value = bound_arguments.arguments.get(parameter_name)
                 if not isinstance(value, DataFrame):
@@ -143,31 +142,30 @@ def _wrap_transform(
                     )
 
                 try:
-                    assertSchemaEqual(
-                        value.schema,
-                        expected_schema,
-                        ignoreNullable=ignore_nullable,
+                    bound_arguments.arguments[parameter_name] = (
+                        schemas.coerce_dataframe(value, expected_schema, validate_input)
                     )
-                except PySparkAssertionError as e:
+                except ValueError as e:
                     raise ValueError(
                         f"Schema mismatch for parameter '{parameter_name}'"
                     ) from e
 
-        result = fn(*args, **kwds)
+        result = fn(*bound_arguments.args, **bound_arguments.kwargs)
 
-        if validate_output and spec.output_schema is not None:
+        if validate_output is not None and spec.output_schema is not None:
             if not isinstance(result, DataFrame):
                 raise TypeError(
                     f"Return value from '{fn.__name__}' must be a pyspark.sql.DataFrame"
                 )
 
             try:
-                assertSchemaEqual(
-                    result.schema,
-                    spec.output_schema,
-                    ignoreNullable=ignore_nullable,
+                result = cast(
+                    R,
+                    schemas.coerce_dataframe(
+                        result, spec.output_schema, validate_output
+                    ),
                 )
-            except PySparkAssertionError as e:
+            except ValueError as e:
                 raise ValueError(f"Return schema mismatch for '{fn.__name__}'") from e
 
         return result
@@ -179,9 +177,8 @@ def _wrap_transform(
 def transform(
     f: Callable[P, R],
     *,
-    validate_input: bool = True,
-    validate_output: bool = True,
-    ignore_nullable: bool = True,
+    validate_input: CoercionMode | None = "project_all",
+    validate_output: CoercionMode | None = "project_all",
 ) -> Callable[P, R]: ...
 
 
@@ -189,18 +186,16 @@ def transform(
 def transform(
     f: None = None,
     *,
-    validate_input: bool = True,
-    validate_output: bool = True,
-    ignore_nullable: bool = True,
+    validate_input: CoercionMode | None = "project_all",
+    validate_output: CoercionMode | None = "project_all",
 ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
 
 def transform(
     f: Callable[P, R] | None = None,
     *,
-    validate_input: bool = True,
-    validate_output: bool = True,
-    ignore_nullable: bool = True,
+    validate_input: CoercionMode | None = "project_all",
+    validate_output: CoercionMode | None = "project_all",
 ):
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
         spec = _inspect_transform(fn)
@@ -209,7 +204,6 @@ def transform(
             spec,
             validate_input=validate_input,
             validate_output=validate_output,
-            ignore_nullable=ignore_nullable,
         )
 
     if f is None:

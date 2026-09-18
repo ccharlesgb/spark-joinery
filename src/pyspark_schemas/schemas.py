@@ -1,11 +1,16 @@
 from dataclasses import fields, is_dataclass
-from typing import Any, TypeVar
+from functools import partial
+from typing import Any, Callable, TypeVar, Literal
 
-from pyspark.sql import DataFrame, types
+from pyspark.errors import PySparkAssertionError
+from pyspark.sql import Column, DataFrame, functions as F, types
+from pyspark.testing import assertSchemaEqual
 
 from . import type_inspection
 
 T = TypeVar("T")
+
+CoercionMode = Literal["coerce", "project_all", "project", "strict", "strict_null"]
 
 
 def is_pydantic_model(klass: Any) -> bool:
@@ -79,3 +84,105 @@ def dataframe_is_schema(dataframe: DataFrame, klass: type[T]) -> bool:
 def dataframe_is_model_schema(dataframe: DataFrame, klass: type[T]) -> bool:
     expected_schema = get_spark_schema_from_model(klass)
     return dataframe.schema == expected_schema
+
+
+def _coerce_strict(
+    dataframe: DataFrame, schema: types.StructType, *, ignore_nullable: bool
+) -> DataFrame:
+    try:
+        assertSchemaEqual(dataframe.schema, schema, ignoreNullable=ignore_nullable)
+    except PySparkAssertionError as e:
+        raise ValueError("Schema mismatch") from e
+    return dataframe
+
+
+def _build_projected_column(
+    column: Column,
+    source_type: types.DataType,
+    target_type: types.DataType,
+    *,
+    cast: bool,
+    recurse: bool,
+) -> Column:
+    if recurse and isinstance(target_type, types.StructType):
+        if not isinstance(source_type, types.StructType):
+            raise ValueError(f"Expected struct type but found {source_type}")
+
+        source_fields = {field.name: field.dataType for field in source_type.fields}
+        nested_columns = []
+        for target_field in target_type.fields:
+            if target_field.name not in source_fields:
+                raise ValueError(f"Missing field '{target_field.name}'")
+            nested_column = _build_projected_column(
+                column.getField(target_field.name),
+                source_fields[target_field.name],
+                target_field.dataType,
+                cast=cast,
+                recurse=recurse,
+            )
+            nested_columns.append(nested_column.alias(target_field.name))
+        return F.struct(*nested_columns)
+
+    if recurse and isinstance(target_type, types.ArrayType):
+        if not isinstance(source_type, types.ArrayType):
+            raise ValueError(f"Expected array type but found {source_type}")
+
+        return F.transform(
+            column,
+            lambda element: _build_projected_column(
+                element,
+                source_type.elementType,
+                target_type.elementType,
+                cast=cast,
+                recurse=recurse,
+            ),
+        )
+
+    if source_type == target_type:
+        return column
+
+    if cast:
+        return column.cast(target_type)
+
+    raise ValueError(f"Type mismatch: expected {target_type}, found {source_type}")
+
+
+def _project_fields(
+    dataframe: DataFrame, schema: types.StructType, *, cast: bool, recurse: bool
+) -> DataFrame:
+    source_fields = {field.name: field.dataType for field in dataframe.schema.fields}
+
+    missing_fields = [
+        field.name for field in schema.fields if field.name not in source_fields
+    ]
+    if missing_fields:
+        raise ValueError(f"Missing columns: {missing_fields}")
+
+    columns = [
+        _build_projected_column(
+            F.col(field.name),
+            source_fields[field.name],
+            field.dataType,
+            cast=cast,
+            recurse=recurse,
+        ).alias(field.name)
+        for field in schema.fields
+    ]
+    return dataframe.select(*columns)
+
+
+_MODE_HANDLERS: dict[
+    CoercionMode, Callable[[DataFrame, types.StructType], DataFrame]
+] = {
+    "strict": partial(_coerce_strict, ignore_nullable=True),
+    "strict_null": partial(_coerce_strict, ignore_nullable=False),
+    "project": partial(_project_fields, cast=False, recurse=False),
+    "project_all": partial(_project_fields, cast=False, recurse=True),
+    "coerce": partial(_project_fields, cast=True, recurse=True),
+}
+
+
+def coerce_dataframe(
+    dataframe: DataFrame, schema: types.StructType, mode: CoercionMode
+) -> DataFrame:
+    return _MODE_HANDLERS[mode](dataframe, schema)

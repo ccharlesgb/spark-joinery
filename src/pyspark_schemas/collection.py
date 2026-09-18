@@ -1,5 +1,6 @@
 from typing import Any, Callable, ParamSpec, TypeVar, overload
 
+from .schemas import CoercionMode
 from .transform import TransformSpec, _inspect_transform, _wrap_transform
 
 P = ParamSpec("P")
@@ -15,9 +16,8 @@ class Collection:
         self,
         f: Callable[P, R],
         *,
-        validate_input: bool = True,
-        validate_output: bool = True,
-        ignore_nullable: bool = True,
+        validate_input: CoercionMode | None = "project_all",
+        validate_output: CoercionMode | None = "project_all",
     ) -> Callable[P, R]: ...
 
     @overload
@@ -25,18 +25,16 @@ class Collection:
         self,
         f: None = None,
         *,
-        validate_input: bool = True,
-        validate_output: bool = True,
-        ignore_nullable: bool = True,
+        validate_input: CoercionMode | None = "project_all",
+        validate_output: CoercionMode | None = "project_all",
     ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
     def transform(
         self,
         f: Callable[P, R] | None = None,
         *,
-        validate_input: bool = True,
-        validate_output: bool = True,
-        ignore_nullable: bool = True,
+        validate_input: CoercionMode | None = "project_all",
+        validate_output: CoercionMode | None = "project_all",
     ):
         def decorator(fn: Callable[P, R]) -> Callable[P, R]:
             spec = _inspect_transform(fn)
@@ -45,7 +43,6 @@ class Collection:
                 spec,
                 validate_input=validate_input,
                 validate_output=validate_output,
-                ignore_nullable=ignore_nullable,
             )
             self._specs[wrapper] = spec
             return wrapper

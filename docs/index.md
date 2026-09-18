@@ -45,7 +45,6 @@ A minimum example pipeline is:
 
 Which outputs:
 
-| order_date | customer_id | total_order_value |
-|------------|-------------|-------------------|
-| 2026-09-18 | customer_1  | 100.0             |
-| 2026-09-18 | customer_2  | 200.0             |
+```md
+--8<-- "docs_src/index/minimum_example_stdout.log"
+```

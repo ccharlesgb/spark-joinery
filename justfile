@@ -28,3 +28,6 @@ docs-serve:
 
 docs-build:
     zensical build
+
+docs-examples:
+    uv run python scripts/run_docs_examples.py

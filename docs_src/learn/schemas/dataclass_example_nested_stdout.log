@@ -1,0 +1,23 @@
+StructType([
+    StructField('customer_id', StringType(), True),
+    StructField('name', StringType(), True),
+    StructField(
+        'employees',
+        ArrayType(
+            StructType([
+                StructField('name', StringType(), True),
+                StructField('phone_number', StringType(), True)
+            ]),
+            True
+        ),
+        True
+    ),
+    StructField(
+        'location',
+        StructType([
+            StructField('latitude', FloatType(), True),
+            StructField('longitude', FloatType(), True)
+        ]),
+        True
+    )
+])

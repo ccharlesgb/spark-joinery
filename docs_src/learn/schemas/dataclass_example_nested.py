@@ -1,4 +1,4 @@
-from spark_joinery import get_spark_schema_from_model
+from spark_joinery import get_spark_schema_from_model, pretty_print_struct_type
 from dataclasses import dataclass
 
 
@@ -23,4 +23,4 @@ class Customer:
 
 
 schema = get_spark_schema_from_model(Customer)
-print(schema)
+pretty_print_struct_type(schema)

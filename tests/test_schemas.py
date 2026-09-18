@@ -5,7 +5,7 @@ import pytest
 from pyspark.sql import SparkSession, types
 from pydantic import BaseModel
 
-from pyspark_schemas import schemas
+from spark_joinery import schemas
 
 
 @pytest.fixture(scope="session")
@@ -248,6 +248,7 @@ def test_dataframe_is_model_schema_returns_true_for_pydantic_model(
     assert schemas.dataframe_is_model_schema(dataframe, Product)
 
 
+# --- coerce_dataframe: strict ---
 
 
 def test_coerce_dataframe_strict_passes_when_schemas_match_apart_from_nullable(
@@ -300,6 +301,7 @@ def test_coerce_dataframe_strict_raises_for_type_mismatch(spark: SparkSession):
         schemas.coerce_dataframe(dataframe, schema, "strict")
 
 
+# --- coerce_dataframe: project ---
 
 
 def test_coerce_dataframe_project_selects_subset_of_columns(spark: SparkSession):
@@ -351,6 +353,7 @@ def test_coerce_dataframe_project_raises_for_type_mismatch(spark: SparkSession):
         schemas.coerce_dataframe(dataframe, schema, "project")
 
 
+# --- coerce_dataframe: project_all ---
 
 
 def test_coerce_dataframe_project_all_prunes_nested_struct_fields(spark: SparkSession):

@@ -4,7 +4,7 @@ from pyspark.testing import assertDataFrameEqual
 from typing import Generator
 from dataclasses import dataclass
 from pydantic import BaseModel
-from pyspark_schemas.fixtures import get_dataframe
+from spark_joinery.fixtures import get_dataframe
 from pyspark.sql import types
 
 

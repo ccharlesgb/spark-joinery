@@ -2,7 +2,7 @@ import datetime
 import decimal
 from typing import Annotated, Literal, Optional
 
-from pyspark_schemas import type_inspection
+from spark_joinery import type_inspection
 from pyspark.sql import types
 import pytest
 

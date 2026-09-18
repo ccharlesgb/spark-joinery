@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 
 from .context import CustomersPath, OutputPath
 from .pipeline import DATA_DIR, OUTPUT_DIR, build_pipeline
-from pyspark_schemas.dependencies import PipelineContext
+from spark_joinery.dependencies import PipelineContext
 
 spark = (
     SparkSession.builder.appName("customer-group-pipeline")

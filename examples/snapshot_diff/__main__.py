@@ -1,6 +1,6 @@
 from pyspark.sql import SparkSession
 
-from pyspark_schemas.dependencies import PipelineContext
+from spark_joinery.dependencies import PipelineContext
 from .context import OutputPath, SnapshottedDimensionPath, RunDate
 from .pipeline import build_pipeline, DATA_DIR, OUTPUT_DIR
 

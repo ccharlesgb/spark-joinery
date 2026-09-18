@@ -7,8 +7,8 @@ from datetime import timedelta
 
 from .context import SnapshottedDimensionPath, OutputPath, RunDate
 from .schemas import SnapshottedDimension, DimensionTransitions
-from pyspark_schemas.collection import Collection
-from pyspark_schemas.dependencies import Context
+from spark_joinery.collection import Collection
+from spark_joinery.dependencies import Context
 
 
 snapshot_diff = Collection()

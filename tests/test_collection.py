@@ -3,8 +3,8 @@ from typing import Annotated
 
 from pyspark.sql import DataFrame
 
-from pyspark_schemas import schemas
-from pyspark_schemas.collection import Collection
+from spark_joinery import schemas
+from spark_joinery.collection import Collection
 
 
 def test_collection_stores_spec_without_patching_function():

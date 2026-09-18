@@ -7,7 +7,7 @@ install:
     uv sync --all-extras --all-groups
 
 run:
-    uv run pyspark-schemas
+    uv run spark-joinery
 
 test:
     uv run pytest

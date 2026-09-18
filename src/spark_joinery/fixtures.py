@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import TypeVar
 from pyspark.sql import DataFrame, SparkSession
-from pyspark_schemas import schemas
+from spark_joinery import schemas
 
 T = TypeVar("T")
 

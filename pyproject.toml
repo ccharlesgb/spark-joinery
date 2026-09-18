@@ -1,5 +1,5 @@
 [project]
-name = "pyspark-schemas"
+name = "spark-joinery"
 version = "0.1.0"
 description = "Schema safety for pyspark transformations"
 authors = [
@@ -29,7 +29,7 @@ pydantic = [
 ]
 
 [project.scripts]
-pyspark-schemas = "pyspark-schemas:main"
+spark-joinery = "spark_joinery:main"
 
 [build-system]
 requires = ["uv_build>=0.9.27,<0.10.0"]

@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from pyspark_schemas.dependencies import Context, PipelineContext
+from spark_joinery.dependencies import Context, PipelineContext
 
 
 @dataclass(frozen=True)

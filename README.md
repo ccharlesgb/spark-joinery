@@ -1,4 +1,4 @@
-# pyspark-schemas
+# spark-joinery
 
 Schema safety for your spark jobs
 

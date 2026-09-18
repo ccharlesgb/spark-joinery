@@ -4,9 +4,9 @@ from typing import Annotated, Generator
 import pytest
 from pyspark.sql import DataFrame, SparkSession, types
 
-from pyspark_schemas import fixtures, schemas
-from pyspark_schemas.dependencies import Context
-from pyspark_schemas.transform import _inspect_transform, transform
+from spark_joinery import fixtures, schemas
+from spark_joinery.dependencies import Context
+from spark_joinery.transform import _inspect_transform, transform
 
 
 @dataclass

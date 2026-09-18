@@ -1,6 +1,6 @@
 [project]
-site_name = "pyspark-schemas"
-site_description = "pyspark-schemas documentation"
+site_name = "spark-joinery"
+site_description = "spark-joinery documentation"
 site_author = "Connor Charles"
 
 [project.theme]

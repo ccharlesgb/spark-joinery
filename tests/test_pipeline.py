@@ -4,7 +4,7 @@ from typing import Annotated, Generator
 import pytest
 from pyspark.sql import DataFrame, SparkSession
 
-from pyspark_schemas import (
+from spark_joinery import (
     Context as ExportedContext,
     ExecutablePipeline,
     Pipeline as ExportedPipeline,
@@ -12,9 +12,9 @@ from pyspark_schemas import (
     PipelineExecutionError as ExportedPipelineExecutionError,
     Step as ExportedStep,
 )
-from pyspark_schemas.collection import Collection
-from pyspark_schemas.dependencies import Context, PipelineContext
-from pyspark_schemas.pipeline import Pipeline, PipelineExecutionError
+from spark_joinery.collection import Collection
+from spark_joinery.dependencies import Context, PipelineContext
+from spark_joinery.pipeline import Pipeline, PipelineExecutionError
 
 
 @dataclass

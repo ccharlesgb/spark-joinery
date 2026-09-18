@@ -1,7 +1,7 @@
 from pyspark.sql import SparkSession
 
 from .pipeline import build_pipeline
-from pyspark_schemas.dependencies import PipelineContext
+from spark_joinery.dependencies import PipelineContext
 from .context import OrdersPath, CustomersPath, OutputPath, RunDate
 from .pipeline import DATA_DIR, OUTPUT_DIR
 

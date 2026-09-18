@@ -6,7 +6,7 @@ from .collection import (
     denormalise_group_id,
     write_output,
 )
-from pyspark_schemas.pipeline import Pipeline, ExecutablePipeline
+from spark_joinery.pipeline import Pipeline, ExecutablePipeline
 
 
 DATA_DIR = Path(__file__).parent / "data"

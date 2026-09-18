@@ -5,8 +5,8 @@ from pyspark.sql import functions as F
 
 from .context import OrdersPath, CustomersPath, OutputPath, RunDate
 from .schemas import Order, Customer, OrderWithCustomerDimension
-from pyspark_schemas.collection import Collection
-from pyspark_schemas.dependencies import Context
+from spark_joinery.collection import Collection
+from spark_joinery.dependencies import Context
 from dataclasses import fields
 
 

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-from pyspark_schemas.pipeline import Pipeline, ExecutablePipeline
+from spark_joinery.pipeline import Pipeline, ExecutablePipeline
 
 from .collection import (
     get_current_snapshot,

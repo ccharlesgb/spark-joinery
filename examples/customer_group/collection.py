@@ -5,8 +5,8 @@ from pyspark.sql import functions as F
 
 from .context import CustomersPath, OutputPath
 from .schemas import Customer, CustomerGroup
-from pyspark_schemas.collection import Collection
-from pyspark_schemas.dependencies import Context
+from spark_joinery.collection import Collection
+from spark_joinery.dependencies import Context
 
 
 customer_group = Collection()

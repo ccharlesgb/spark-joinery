@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, ParamSpec, Sequence, TypeVar, overload
 
 from pyspark.sql import DataFrame, SparkSession, types
+
+from spark_joinery.utils import get_callable_name
 
 from .collection import Collection
 from .dependencies import Context, PipelineContext
 from .schemas import CoercionMode
 
 Transform = Callable[..., DataFrame | None]
+P = ParamSpec("P")
+R = TypeVar("R")
 
 
 class PipelineExecutionError(RuntimeError):
@@ -100,13 +104,31 @@ class Pipeline:
         self._validated = False
         self._executable: ExecutablePipeline | None = None
 
+    @overload
     def transform(
         self,
-        f=None,
+        f: Callable[P, R],
         *,
         validate_input: CoercionMode | None = "project_all",
         validate_output: CoercionMode | None = "project_all",
-    ):
+    ) -> Callable[P, R]: ...
+
+    @overload
+    def transform(
+        self,
+        f: None = None,
+        *,
+        validate_input: CoercionMode | None = "project_all",
+        validate_output: CoercionMode | None = "project_all",
+    ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+
+    def transform(
+        self,
+        f: Callable[P, R] | None = None,
+        *,
+        validate_input: CoercionMode | None = "project_all",
+        validate_output: CoercionMode | None = "project_all",
+    ) -> Callable[P, R] | Callable[[Callable[P, R]], Callable[P, R]]:
         return self._collection.transform(
             f,
             validate_input=validate_input,
@@ -121,8 +143,14 @@ class Pipeline:
         name = getattr(transform, "__name__", repr(transform))
         raise TypeError(f"'{name}' is not registered in this pipeline's collections")
 
-    def add_step(self, transform: Transform, name: str) -> Step:
+    def add_step(self, transform: Transform, name: str | None = None) -> Step:
         self._ensure_mutable()
+        if name is None:
+            name = get_callable_name(transform)
+        if name is None:
+            raise ValueError(
+                f"Step name of '{transform}' could not be inferred. Pass name=<desired_name>"
+            )
         if name in self._steps:
             raise ValueError(f"step name '{name}' is already registered")
 

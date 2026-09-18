@@ -116,6 +116,8 @@ def get_spark_type_from_python_type(python_type: type) -> types.DataType:
         return types.TimestampType()
     elif python_type is datetime.date:
         return types.DateType()
+    elif python_type is datetime.timedelta:
+        return types.DayTimeIntervalType()
     elif python_type is decimal.Decimal:
         return types.DecimalType(SPARK_MAX_DECIMAL_PRECISION, DEFAULT_FRACTIONAL_DIGITS)
     elif python_type is bytes:

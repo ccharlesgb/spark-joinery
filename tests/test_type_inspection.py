@@ -26,6 +26,7 @@ import pytest
         (Annotated[Literal[1, 2], types.StringType()], types.StringType()),
         (datetime.datetime, types.TimestampType()),
         (datetime.date, types.DateType()),
+        (datetime.timedelta, types.DayTimeIntervalType()),
         (
             decimal.Decimal,
             types.DecimalType(

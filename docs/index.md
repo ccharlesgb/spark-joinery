@@ -1,7 +1,7 @@
 # Spark Joinery
 
 <figure markdown="span">
-![Image title](/images/spark-joinery-logo.png){ width="300" }
+![Image title](images/spark-joinery-logo.png){ width="300" }
 <figcaption>Schema first spark transformations</figcaption>
 </figure>
 

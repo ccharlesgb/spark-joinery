@@ -7,5 +7,9 @@
     "python.testing.pytestEnabled": true,
     "chat.tools.terminal.autoApprove": {
         "uv": true
+    },
+    "[python-markdown]": {
+        "editor.defaultFormatter": "zensical.zensical-studio",
+        "editor.formatOnSave": true
     }
 }

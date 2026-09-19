@@ -26,3 +26,4 @@ __output
 
 # Agents
 /.agents/
+.DS_Store

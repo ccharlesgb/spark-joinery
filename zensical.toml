@@ -18,6 +18,8 @@ nav = [
 ]
 
 [project.theme]
+logo = "images/spark-joinery-logo.png"
+favicon = "images/favicon.png"
 language = "en"
 features = [
     "content.code.copy",
@@ -54,6 +56,9 @@ pymdownx.snippets = {}
 pymdownx.details = {}
 pymdownx.superfences = {}
 admonition = {}
+attr_list = {}
+md_in_html = {}
+pymdownx.blocks.caption = {}
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"

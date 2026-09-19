@@ -59,8 +59,7 @@ read_orders_step = order_metrics.add_step(read_orders)
 get_metrics_step = order_metrics.add_step(get_metrics)
 print_metrics_step = order_metrics.add_step(print_metrics)
 
-order_metrics.connect(read_orders_step, get_metrics_step)
-order_metrics.connect(get_metrics_step, print_metrics_step)
+read_orders_step >> get_metrics_step >> print_metrics_step
 
 spark = SparkSession.builder.appName("OrderMetricsApp").getOrCreate()
 

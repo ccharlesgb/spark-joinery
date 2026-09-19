@@ -33,6 +33,12 @@ class Step:
     _upstream_steps: list[Step]
     _explicit_bindings: dict[Step, str]
 
+    def __rshift__(self, other: Step) -> Step:
+        if not isinstance(other, Step):
+            raise TypeError("Can only connect Step instances using >>")
+        self._pipeline.connect(self, other)
+        return other
+
 
 @dataclass(frozen=True)
 class _ExecutionStep:

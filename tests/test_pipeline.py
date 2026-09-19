@@ -95,6 +95,41 @@ def test_duplicate_edges_are_idempotent():
     pipeline.validate()
 
 
+def test_step_right_shift_connects_steps_and_returns_downstream():
+    collection = Collection()
+
+    @collection.transform
+    def read_users(spark: SparkSession) -> Annotated[DataFrame, User]:
+        return spark.createDataFrame([(1,)], "user_id INT")
+
+    @collection.transform
+    def filter_users(
+        users: Annotated[DataFrame, User],
+    ) -> Annotated[DataFrame, User]:
+        return users
+
+    pipeline = Pipeline(collections=[collection])
+    users = pipeline.add_step(read_users, "users")
+    filtered = pipeline.add_step(filter_users, "filtered")
+
+    assert users >> filtered is filtered
+    assert filtered._upstream_steps == [users]
+
+
+def test_step_right_shift_rejects_non_step_operand():
+    collection = Collection()
+
+    @collection.transform
+    def read_users(spark: SparkSession) -> Annotated[DataFrame, User]:
+        return spark.createDataFrame([(1,)], "user_id INT")
+
+    pipeline = Pipeline(collections=[collection])
+    users = pipeline.add_step(read_users, "users")
+
+    with pytest.raises(TypeError, match="only connect Step instances"):
+        users >> "filtered"  # type: ignore[operator]
+
+
 def test_connect_rejects_steps_from_different_pipelines():
     collection = Collection()
 

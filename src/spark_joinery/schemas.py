@@ -9,7 +9,9 @@ from . import type_inspection
 
 T = TypeVar("T")
 
-CoercionMode = Literal["coerce", "project_all", "project", "strict", "strict_null"]
+CoercionMode = Literal[
+    "project_all_cast", "project_all", "project", "strict", "strict_null"
+]
 
 DifferenceKind = Literal["additional", "missing", "type_mismatch", "nullable_mismatch"]
 
@@ -393,7 +395,9 @@ def _format_schema_coercion_error(
         ("additional", "Additional fields"),
         (
             "type_mismatch",
-            "Unsupported type casts" if mode == "coerce" else "Type mismatches",
+            "Unsupported type casts"
+            if mode == "project_all_cast"
+            else "Type mismatches",
         ),
         ("nullable_mismatch", "Nullable mismatches"),
     )
@@ -569,7 +573,7 @@ def _project_fields(
     dataframe: DataFrame,
     schema: types.StructType,
     *,
-    mode: Literal["project", "project_all", "coerce"],
+    mode: Literal["project", "project_all", "project_all_cast"],
     cast: bool,
     recurse: bool,
 ) -> DataFrame:
@@ -611,7 +615,9 @@ _MODE_HANDLERS: dict[
     "project_all": partial(
         _project_fields, mode="project_all", cast=False, recurse=True
     ),
-    "coerce": partial(_project_fields, mode="coerce", cast=True, recurse=True),
+    "project_all_cast": partial(
+        _project_fields, mode="project_all_cast", cast=True, recurse=True
+    ),
 }
 
 

@@ -23,6 +23,6 @@ df = spark.createDataFrame(
     ),
 )
 
-df = coerce_dataframe_to_model(df, Customer, mode="coerce")
+df = coerce_dataframe_to_model(df, Customer, mode="project_all_cast")
 df.show()
 pretty_print_struct_type(df.schema)

@@ -228,7 +228,7 @@ def test_transform_strict_null_raises_for_nullability_mismatch(spark: SparkSessi
     ] == [("nullable_mismatch", "field1")]
 
 
-def test_transform_coerce_mode_casts_input_dataframe(spark: SparkSession):
+def test_transform_project_all_cast_mode_casts_input_dataframe(spark: SparkSession):
     @dataclass
     class InputRow:
         field1: int
@@ -238,7 +238,7 @@ def test_transform_coerce_mode_casts_input_dataframe(spark: SparkSession):
         types.StructType([types.StructField("field1", types.DoubleType(), True)]),
     )
 
-    @transform(validate_input="coerce", validate_output=None)
+    @transform(validate_input="project_all_cast", validate_output=None)
     def my_function(input1: Annotated[DataFrame, InputRow]):
         return input1
 

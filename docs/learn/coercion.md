@@ -85,20 +85,20 @@ Which outputs:
 --8<-- "docs_src/learn/coercion/dataclass_coercion_project_all_stdout.log"
 ```
 
-### Coerce
+### Project All Cast
 
-The most relaxed mode, `coerce`, recursively projects fields and casts values to the model's field types. This
+The most relaxed mode, `project_all_cast`, recursively projects fields and casts values to the model's field types. This
 will still fail if the types cannot be safely cast by spark but this can be useful if reading external data and
 you want to easily align your DataFrame with the model's schema. It will also still fail if there are missing columns:
 
 ``` python
---8<-- "docs_src/learn/coercion/dataclass_coercion_coerce.py"
+--8<-- "docs_src/learn/coercion/dataclass_coercion_project_all_cast.py"
 ```
 
 Which outputs:
 
 ``` python
---8<-- "docs_src/learn/coercion/dataclass_coercion_coerce_stdout.log"
+--8<-- "docs_src/learn/coercion/dataclass_coercion_project_all_cast_stdout.log"
 ```
 
 Type casting in Spark Joinery follows the Spark casting rules described in

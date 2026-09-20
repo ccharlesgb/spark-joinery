@@ -49,6 +49,21 @@ Which similarly gives:
     Spark Joinery does not enforce Pydantic validation rules. It can be useful to include them in your models for
     documentation and for generating valid test fixtures, but only the data type is enforced.
 
+## Creating Dataframes from model instances
+
+You can easily create example DataFrames from lists of model instances. This is particularly
+useful for building test fixtures for a transformation. For example, given a customer model:
+
+``` python
+--8<-- "docs_src/learn/schemas/fixture_example.py"
+```
+
+Which outputs:
+
+``` python
+--8<-- "docs_src/learn/schemas/fixture_example_stdout.log"
+```
+
 ## Default types and manually setting data types
 
 By default Spark Joinery will use the documented [conversions](https://spark.apache.org/docs/latest/api/python/tutorial/sql/type_conversions.html#all-conversions) to map Python types to Spark types. However,

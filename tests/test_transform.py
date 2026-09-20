@@ -105,8 +105,12 @@ def test_transform_raises_for_input_schema_mismatch(spark: SparkSession):
     def my_function(input1: Annotated[DataFrame, InputRow]):
         return input1
 
-    with pytest.raises(ValueError, match="Schema mismatch for parameter 'input1'"):
+    with pytest.raises(schemas.SchemaCoercionError) as error:
         my_function(bad_input_df)
+
+    assert [
+        (violation.kind, violation.path) for violation in error.value.violations
+    ] == [("missing", "field2")]
 
 
 def test_transform_raises_for_output_schema_mismatch(spark: SparkSession):
@@ -127,8 +131,12 @@ def test_transform_raises_for_output_schema_mismatch(spark: SparkSession):
     ) -> Annotated[DataFrame, OutputRow]:
         return input1
 
-    with pytest.raises(ValueError, match="Return schema mismatch for 'my_function'"):
+    with pytest.raises(schemas.SchemaCoercionError) as error:
         my_function(input_df)
+
+    assert [
+        (violation.kind, violation.path) for violation in error.value.violations
+    ] == [("additional", "field2")]
 
 
 def test_transform_parameterized_no_args_still_validates(spark: SparkSession):
@@ -146,8 +154,12 @@ def test_transform_parameterized_no_args_still_validates(spark: SparkSession):
     def my_function(input1: Annotated[DataFrame, InputRow]):
         return input1
 
-    with pytest.raises(ValueError, match="Schema mismatch for parameter 'input1'"):
+    with pytest.raises(schemas.SchemaCoercionError) as error:
         my_function(bad_input_df)
+
+    assert [
+        (violation.kind, violation.path) for violation in error.value.violations
+    ] == [("missing", "field2")]
 
 
 def test_transform_can_disable_output_validation(spark: SparkSession):
@@ -208,8 +220,12 @@ def test_transform_strict_null_raises_for_nullability_mismatch(spark: SparkSessi
     def my_function(input1: Annotated[DataFrame, InputRow]):
         return input1
 
-    with pytest.raises(ValueError, match="Schema mismatch for parameter 'input1'"):
+    with pytest.raises(schemas.SchemaCoercionError) as error:
         my_function(bad_input_df)
+
+    assert [
+        (violation.kind, violation.path) for violation in error.value.violations
+    ] == [("nullable_mismatch", "field1")]
 
 
 def test_transform_coerce_mode_casts_input_dataframe(spark: SparkSession):

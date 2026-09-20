@@ -322,6 +322,266 @@ def test_get_spark_schema_from_model_returns_nested_schema_for_pydantic_models()
     assert actual_schema == expected_schema
 
 
+def test_schema_diff_reports_all_nested_differences():
+    given = types.StructType(
+        [
+            types.StructField("extra", types.StringType(), True),
+            types.StructField(
+                "customer",
+                types.StructType(
+                    [
+                        types.StructField("name", types.IntegerType(), False),
+                        types.StructField("legacy", types.StringType(), True),
+                    ]
+                ),
+                False,
+            ),
+            types.StructField(
+                "items", types.ArrayType(types.IntegerType(), containsNull=False), True
+            ),
+        ]
+    )
+    expected = types.StructType(
+        [
+            types.StructField(
+                "customer",
+                types.StructType(
+                    [
+                        types.StructField("name", types.StringType(), True),
+                        types.StructField("postcode", types.StringType(), True),
+                    ]
+                ),
+                True,
+            ),
+            types.StructField(
+                "items", types.ArrayType(types.StringType(), containsNull=True), True
+            ),
+        ]
+    )
+
+    diff = schemas._schema_diff(given, expected)
+
+    assert [difference.path for difference in diff.additional] == [
+        "extra",
+        "customer.legacy",
+    ]
+    assert [difference.path for difference in diff.missing] == ["customer.postcode"]
+    assert [difference.path for difference in diff.type_mismatches] == [
+        "customer.name",
+        "items[]",
+    ]
+    assert [difference.path for difference in diff.nullable_mismatches] == [
+        "customer",
+        "customer.name",
+        "items[]",
+    ]
+
+
+_NUMERIC = types.NumericType()
+_STRING = types.StringType()
+_DATE = types.DateType()
+_TIME = types.TimeType()
+_TIMESTAMP = types.TimestampType()
+_TIMESTAMP_NTZ = types.TimestampNTZType()
+_INTERVAL = types.DayTimeIntervalType()
+_BOOLEAN = types.BooleanType()
+_BINARY = types.BinaryType()
+_ARRAY = types.ArrayType(types.NullType())
+_MAP = types.MapType(types.NullType(), types.NullType())
+_STRUCT = types.StructType()
+
+_TEST_CAST_MATRIX = {
+    (_NUMERIC, _NUMERIC): True,
+    (_NUMERIC, _STRING): True,
+    (_NUMERIC, _DATE): False,
+    (_NUMERIC, _TIME): False,
+    (_NUMERIC, _TIMESTAMP): True,
+    (_NUMERIC, _TIMESTAMP_NTZ): False,
+    (_NUMERIC, _INTERVAL): True,
+    (_NUMERIC, _BOOLEAN): True,
+    (_NUMERIC, _BINARY): False,
+    (_NUMERIC, _ARRAY): False,
+    (_NUMERIC, _MAP): False,
+    (_NUMERIC, _STRUCT): False,
+    (_STRING, _NUMERIC): True,
+    (_STRING, _STRING): True,
+    (_STRING, _DATE): True,
+    (_STRING, _TIME): True,
+    (_STRING, _TIMESTAMP): True,
+    (_STRING, _TIMESTAMP_NTZ): True,
+    (_STRING, _INTERVAL): True,
+    (_STRING, _BOOLEAN): True,
+    (_STRING, _BINARY): True,
+    (_STRING, _ARRAY): False,
+    (_STRING, _MAP): False,
+    (_STRING, _STRUCT): False,
+    (_DATE, _NUMERIC): False,
+    (_DATE, _STRING): True,
+    (_DATE, _DATE): True,
+    (_DATE, _TIME): False,
+    (_DATE, _TIMESTAMP): True,
+    (_DATE, _TIMESTAMP_NTZ): True,
+    (_DATE, _INTERVAL): False,
+    (_DATE, _BOOLEAN): False,
+    (_DATE, _BINARY): False,
+    (_DATE, _ARRAY): False,
+    (_DATE, _MAP): False,
+    (_DATE, _STRUCT): False,
+    (_TIME, _NUMERIC): False,
+    (_TIME, _STRING): True,
+    (_TIME, _DATE): False,
+    (_TIME, _TIME): True,
+    (_TIME, _TIMESTAMP): False,
+    (_TIME, _TIMESTAMP_NTZ): False,
+    (_TIME, _INTERVAL): False,
+    (_TIME, _BOOLEAN): False,
+    (_TIME, _BINARY): False,
+    (_TIME, _ARRAY): False,
+    (_TIME, _MAP): False,
+    (_TIME, _STRUCT): False,
+    (_TIMESTAMP, _NUMERIC): True,
+    (_TIMESTAMP, _STRING): True,
+    (_TIMESTAMP, _DATE): True,
+    (_TIMESTAMP, _TIME): False,
+    (_TIMESTAMP, _TIMESTAMP): True,
+    (_TIMESTAMP, _TIMESTAMP_NTZ): True,
+    (_TIMESTAMP, _INTERVAL): False,
+    (_TIMESTAMP, _BOOLEAN): False,
+    (_TIMESTAMP, _BINARY): False,
+    (_TIMESTAMP, _ARRAY): False,
+    (_TIMESTAMP, _MAP): False,
+    (_TIMESTAMP, _STRUCT): False,
+    (_TIMESTAMP_NTZ, _NUMERIC): False,
+    (_TIMESTAMP_NTZ, _STRING): True,
+    (_TIMESTAMP_NTZ, _DATE): True,
+    (_TIMESTAMP_NTZ, _TIME): False,
+    (_TIMESTAMP_NTZ, _TIMESTAMP): True,
+    (_TIMESTAMP_NTZ, _TIMESTAMP_NTZ): True,
+    (_TIMESTAMP_NTZ, _INTERVAL): False,
+    (_TIMESTAMP_NTZ, _BOOLEAN): False,
+    (_TIMESTAMP_NTZ, _BINARY): False,
+    (_TIMESTAMP_NTZ, _ARRAY): False,
+    (_TIMESTAMP_NTZ, _MAP): False,
+    (_TIMESTAMP_NTZ, _STRUCT): False,
+    (_INTERVAL, _NUMERIC): True,
+    (_INTERVAL, _STRING): True,
+    (_INTERVAL, _DATE): False,
+    (_INTERVAL, _TIME): False,
+    (_INTERVAL, _TIMESTAMP): False,
+    (_INTERVAL, _TIMESTAMP_NTZ): False,
+    (_INTERVAL, _INTERVAL): True,
+    (_INTERVAL, _BOOLEAN): False,
+    (_INTERVAL, _BINARY): False,
+    (_INTERVAL, _ARRAY): False,
+    (_INTERVAL, _MAP): False,
+    (_INTERVAL, _STRUCT): False,
+    (_BOOLEAN, _NUMERIC): True,
+    (_BOOLEAN, _STRING): True,
+    (_BOOLEAN, _DATE): False,
+    (_BOOLEAN, _TIME): False,
+    (_BOOLEAN, _TIMESTAMP): False,
+    (_BOOLEAN, _TIMESTAMP_NTZ): False,
+    (_BOOLEAN, _INTERVAL): False,
+    (_BOOLEAN, _BOOLEAN): True,
+    (_BOOLEAN, _BINARY): False,
+    (_BOOLEAN, _ARRAY): False,
+    (_BOOLEAN, _MAP): False,
+    (_BOOLEAN, _STRUCT): False,
+    (_BINARY, _NUMERIC): False,
+    (_BINARY, _STRING): True,
+    (_BINARY, _DATE): False,
+    (_BINARY, _TIME): False,
+    (_BINARY, _TIMESTAMP): False,
+    (_BINARY, _TIMESTAMP_NTZ): False,
+    (_BINARY, _INTERVAL): False,
+    (_BINARY, _BOOLEAN): False,
+    (_BINARY, _BINARY): True,
+    (_BINARY, _ARRAY): False,
+    (_BINARY, _MAP): False,
+    (_BINARY, _STRUCT): False,
+    (_ARRAY, _NUMERIC): False,
+    (_ARRAY, _STRING): True,
+    (_ARRAY, _DATE): False,
+    (_ARRAY, _TIME): False,
+    (_ARRAY, _TIMESTAMP): False,
+    (_ARRAY, _TIMESTAMP_NTZ): False,
+    (_ARRAY, _INTERVAL): False,
+    (_ARRAY, _BOOLEAN): False,
+    (_ARRAY, _BINARY): False,
+    (_ARRAY, _ARRAY): True,
+    (_ARRAY, _MAP): False,
+    (_ARRAY, _STRUCT): False,
+    (_MAP, _NUMERIC): False,
+    (_MAP, _STRING): True,
+    (_MAP, _DATE): False,
+    (_MAP, _TIME): False,
+    (_MAP, _TIMESTAMP): False,
+    (_MAP, _TIMESTAMP_NTZ): False,
+    (_MAP, _INTERVAL): False,
+    (_MAP, _BOOLEAN): False,
+    (_MAP, _BINARY): False,
+    (_MAP, _ARRAY): False,
+    (_MAP, _MAP): True,
+    (_MAP, _STRUCT): False,
+    (_STRUCT, _NUMERIC): False,
+    (_STRUCT, _STRING): True,
+    (_STRUCT, _DATE): False,
+    (_STRUCT, _TIME): False,
+    (_STRUCT, _TIMESTAMP): False,
+    (_STRUCT, _TIMESTAMP_NTZ): False,
+    (_STRUCT, _INTERVAL): False,
+    (_STRUCT, _BOOLEAN): False,
+    (_STRUCT, _BINARY): False,
+    (_STRUCT, _ARRAY): False,
+    (_STRUCT, _MAP): False,
+    (_STRUCT, _STRUCT): True,
+}
+
+
+@pytest.mark.parametrize(
+    ("source", "target", "allowed"),
+    [
+        (source, target, allowed)
+        for (source, target), allowed in _TEST_CAST_MATRIX.items()
+    ],
+)
+def test_is_cast_compatible_matches_ansi_matrix(source, target, allowed):
+    assert schemas._is_cast_compatible(source, target) is allowed
+
+
+def test_schema_coercion_error_exposes_all_violations():
+    violations = (
+        schemas.SchemaDifference(
+            "missing",
+            "customer.postcode",
+            None,
+            types.StringType(),
+            None,
+            True,
+        ),
+        schemas.SchemaDifference(
+            "type_mismatch",
+            "active",
+            types.BinaryType(),
+            types.BooleanType(),
+            True,
+            True,
+        ),
+    )
+
+    error = schemas.SchemaCoercionError("coerce", violations)
+
+    assert error.mode == "coerce"
+    assert error.violations == violations
+    assert str(error) == (
+        "Cannot coerce dataframe using mode 'coerce':\n"
+        "  Missing fields:\n"
+        "    - customer.postcode (expected StringType())\n"
+        "  Unsupported type casts:\n"
+        "    - active: BinaryType() -> BooleanType()"
+    )
+
+
 # --- coerce_dataframe: strict ---
 
 
@@ -349,6 +609,23 @@ def test_coerce_dataframe_strict_passes_when_schemas_match_apart_from_nullable(
     assert result.schema == dataframe.schema
 
 
+def test_coerce_dataframe_strict_null_raises_for_nullable_mismatch(
+    spark: SparkSession,
+):
+    dataframe = spark.createDataFrame(
+        [(1,)],
+        types.StructType([types.StructField("value", types.IntegerType(), False)]),
+    )
+    schema = types.StructType([types.StructField("value", types.IntegerType(), True)])
+
+    with pytest.raises(schemas.SchemaCoercionError) as error:
+        schemas.coerce_dataframe(dataframe, schema, "strict_null")
+
+    assert [
+        (violation.kind, violation.path) for violation in error.value.violations
+    ] == [("nullable_mismatch", "value")]
+
+
 def test_coerce_dataframe_strict_raises_for_extra_column(spark: SparkSession):
     dataframe = spark.createDataFrame(
         [(1, "a")],
@@ -361,7 +638,7 @@ def test_coerce_dataframe_strict_raises_for_extra_column(spark: SparkSession):
     )
     schema = types.StructType([types.StructField("a", types.IntegerType(), True)])
 
-    with pytest.raises(ValueError, match="Schema mismatch"):
+    with pytest.raises(schemas.SchemaCoercionError):
         schemas.coerce_dataframe(dataframe, schema, "strict")
 
 
@@ -371,7 +648,7 @@ def test_coerce_dataframe_strict_raises_for_type_mismatch(spark: SparkSession):
     )
     schema = types.StructType([types.StructField("a", types.StringType(), True)])
 
-    with pytest.raises(ValueError, match="Schema mismatch"):
+    with pytest.raises(schemas.SchemaCoercionError):
         schemas.coerce_dataframe(dataframe, schema, "strict")
 
 
@@ -413,7 +690,7 @@ def test_coerce_dataframe_project_raises_for_missing_column(spark: SparkSession)
         ]
     )
 
-    with pytest.raises(ValueError, match="Missing columns"):
+    with pytest.raises(schemas.SchemaCoercionError):
         schemas.coerce_dataframe(dataframe, schema, "project")
 
 
@@ -423,8 +700,33 @@ def test_coerce_dataframe_project_raises_for_type_mismatch(spark: SparkSession):
     )
     schema = types.StructType([types.StructField("a", types.StringType(), True)])
 
-    with pytest.raises(ValueError, match="Type mismatch"):
+    with pytest.raises(schemas.SchemaCoercionError):
         schemas.coerce_dataframe(dataframe, schema, "project")
+
+
+def test_coerce_dataframe_project_reports_every_missing_and_type_mismatch(
+    spark: SparkSession,
+):
+    dataframe = spark.createDataFrame(
+        [(1,)],
+        types.StructType([types.StructField("actual", types.IntegerType(), True)]),
+    )
+    schema = types.StructType(
+        [
+            types.StructField("actual", types.StringType(), True),
+            types.StructField("required", types.StringType(), True),
+        ]
+    )
+
+    with pytest.raises(schemas.SchemaCoercionError) as error:
+        schemas.coerce_dataframe(dataframe, schema, "project")
+
+    assert [
+        (violation.kind, violation.path) for violation in error.value.violations
+    ] == [
+        ("missing", "required"),
+        ("type_mismatch", "actual"),
+    ]
 
 
 # --- coerce_dataframe: project_all ---
@@ -536,7 +838,7 @@ def test_coerce_dataframe_project_all_raises_for_missing_nested_field(
         ]
     )
 
-    with pytest.raises(ValueError, match="Missing field 'a2'"):
+    with pytest.raises(schemas.SchemaCoercionError):
         schemas.coerce_dataframe(dataframe, schema, "project_all")
 
 
@@ -567,7 +869,7 @@ def test_coerce_dataframe_project_all_raises_for_nested_type_mismatch(
         ]
     )
 
-    with pytest.raises(ValueError, match="Type mismatch"):
+    with pytest.raises(schemas.SchemaCoercionError):
         schemas.coerce_dataframe(dataframe, schema, "project_all")
 
 
@@ -662,5 +964,37 @@ def test_coerce_dataframe_coerce_raises_for_missing_field(spark: SparkSession):
         ]
     )
 
-    with pytest.raises(ValueError, match="Missing columns"):
+    with pytest.raises(schemas.SchemaCoercionError):
         schemas.coerce_dataframe(dataframe, schema, "coerce")
+
+
+def test_coerce_dataframe_coerce_reports_every_unsupported_cast(
+    spark: SparkSession,
+):
+    dataframe = spark.createDataFrame(
+        [(None, None)],
+        types.StructType(
+            [
+                types.StructField("binary_value", types.BinaryType(), True),
+                types.StructField("date_value", types.DateType(), True),
+            ]
+        ),
+    )
+    schema = types.StructType(
+        [
+            types.StructField("binary_value", types.BooleanType(), True),
+            types.StructField("date_value", types.IntegerType(), True),
+            types.StructField("required", types.StringType(), True),
+        ]
+    )
+
+    with pytest.raises(schemas.SchemaCoercionError) as error:
+        schemas.coerce_dataframe(dataframe, schema, "coerce")
+
+    assert [
+        (violation.kind, violation.path) for violation in error.value.violations
+    ] == [
+        ("missing", "required"),
+        ("type_mismatch", "binary_value"),
+        ("type_mismatch", "date_value"),
+    ]

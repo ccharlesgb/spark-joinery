@@ -100,3 +100,8 @@ Which outputs:
 ``` python
 --8<-- "docs_src/learn/coercion/dataclass_coercion_coerce_stdout.log"
 ```
+
+Type casting in Spark Joinery follows the Spark casting rules described in
+the [spark documentation](https://spark.apache.org/docs/latest/sql-ref-ansi-compliance.html#cast). If the cast is
+permitted then the field will be wrapped in a `cast` function to try to change the data type. This could still
+raise a runtime error if the cast is not possible for a specific value in your dataframe.

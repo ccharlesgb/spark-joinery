@@ -3,7 +3,7 @@ from datetime import date, datetime
 from pyspark.sql import DataFrame, SparkSession
 from typing import Annotated
 from pyspark.sql.types import DoubleType
-from spark_joinery import Pipeline, Schema
+from spark_joinery import Pipeline, Schema, Strict
 
 
 @dataclass
@@ -24,7 +24,7 @@ order_metrics = Pipeline()
 
 
 @order_metrics.transform
-def read_orders(spark: SparkSession) -> Annotated[DataFrame, Orders]:
+def read_orders(spark: SparkSession) -> Annotated[DataFrame, Strict(Orders)]:
     input_schema = Schema(Orders).spark_schema
     return spark.createDataFrame(
         [
@@ -38,8 +38,8 @@ def read_orders(spark: SparkSession) -> Annotated[DataFrame, Orders]:
 
 @order_metrics.transform
 def get_metrics(
-    order_table: Annotated[DataFrame, Orders],
-) -> Annotated[DataFrame, OrderMetrics]:
+    order_table: Annotated[DataFrame, Strict(Orders)],
+) -> Annotated[DataFrame, Strict(OrderMetrics)]:
     return (
         order_table.groupBy(
             order_table["order_timestamp"].cast("date").alias("order_date"),
@@ -51,7 +51,7 @@ def get_metrics(
 
 
 @order_metrics.transform
-def print_metrics(metrics_table: Annotated[DataFrame, OrderMetrics]) -> None:
+def print_metrics(metrics_table: Annotated[DataFrame, Strict(OrderMetrics)]) -> None:
     metrics_table.show()
 
 

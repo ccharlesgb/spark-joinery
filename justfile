@@ -10,7 +10,7 @@ run:
     uv run spark-joinery
 
 test:
-    uv run pytest
+    uv run pytest --ignore=docs_src/
 
 lint:
     uv run ruff check . --fix

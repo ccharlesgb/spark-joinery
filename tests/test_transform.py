@@ -4,9 +4,16 @@ from typing import Annotated, Generator
 import pytest
 from pyspark.sql import DataFrame, SparkSession, types
 
-from spark_joinery import Schema, schemas
+from spark_joinery import (
+    Schema,
+    schemas,
+    ProjectAllCast,
+    Strict,
+    StrictNull,
+    ProjectAll,
+)
 from spark_joinery.dependencies import Context
-from spark_joinery.transform import _inspect_transform, transform
+from spark_joinery.transform import Contract, _inspect_transform, transform
 
 
 @dataclass
@@ -46,16 +53,16 @@ def test_inspect_transform_collects_context_parameters():
 
 def test_inspect_transform_context_parameter_not_treated_as_dataframe_input():
     def filter_orders(
-        orders: Annotated[DataFrame, Order],
+        orders: Annotated[DataFrame, ProjectAll(Order)],
         path: Annotated[PathConfig, Context()],
     ) -> Annotated[DataFrame, Order]:
         raise AssertionError
 
     spec = _inspect_transform(filter_orders)
 
-    assert set(spec.input_schemas) == {"orders"}
-    assert isinstance(spec.input_schemas["orders"], Schema)
-    assert spec.input_schemas["orders"].model is Order
+    assert set(spec.input_contracts) == {"orders"}
+    assert isinstance(spec.input_contracts["orders"], Contract)
+    assert spec.input_contracts["orders"].schema.model is Order
     assert set(spec.context_parameters) == {"path"}
 
 
@@ -104,7 +111,7 @@ def test_transform_raises_for_input_schema_mismatch(spark: SparkSession):
     )
 
     @transform
-    def my_function(input1: Annotated[DataFrame, InputRow]):
+    def my_function(input1: Annotated[DataFrame, ProjectAll(InputRow)]):
         return input1
 
     with pytest.raises(schemas.SchemaCoercionError) as error:
@@ -127,10 +134,10 @@ def test_transform_raises_for_output_schema_mismatch(spark: SparkSession):
 
     input_df = Schema(InputRow).create_dataframe(spark, [InputRow(1, "a")])
 
-    @transform(validate_output="strict")
+    @transform
     def my_function(
         input1: Annotated[DataFrame, InputRow],
-    ) -> Annotated[DataFrame, OutputRow]:
+    ) -> Annotated[DataFrame, Strict(OutputRow)]:
         return input1
 
     with pytest.raises(schemas.SchemaCoercionError) as error:
@@ -139,29 +146,6 @@ def test_transform_raises_for_output_schema_mismatch(spark: SparkSession):
     assert [
         (violation.kind, violation.path) for violation in error.value.violations
     ] == [("additional", "field2")]
-
-
-def test_transform_parameterized_no_args_still_validates(spark: SparkSession):
-    @dataclass
-    class InputRow:
-        field1: int
-        field2: str
-
-    bad_input_df = spark.createDataFrame(
-        [(1,)],
-        types.StructType([types.StructField("field1", types.LongType(), False)]),
-    )
-
-    @transform()
-    def my_function(input1: Annotated[DataFrame, InputRow]):
-        return input1
-
-    with pytest.raises(schemas.SchemaCoercionError) as error:
-        my_function(bad_input_df)
-
-    assert [
-        (violation.kind, violation.path) for violation in error.value.violations
-    ] == [("missing", "field2")]
 
 
 def test_transform_can_disable_output_validation(spark: SparkSession):
@@ -175,7 +159,7 @@ def test_transform_can_disable_output_validation(spark: SparkSession):
 
     input_df = Schema(InputRow).create_dataframe(spark, [InputRow(1)])
 
-    @transform(validate_output=None)
+    @transform
     def my_function(
         input1: Annotated[DataFrame, InputRow],
     ) -> Annotated[DataFrame, OutputRow]:
@@ -184,7 +168,7 @@ def test_transform_can_disable_output_validation(spark: SparkSession):
     assert my_function(input_df) == "not a dataframe"
 
 
-def test_transform_default_project_all_drops_extra_output_columns(
+def test_transform_project_all_drops_extra_output_columns(
     spark: SparkSession,
 ):
     @dataclass
@@ -200,8 +184,8 @@ def test_transform_default_project_all_drops_extra_output_columns(
 
     @transform
     def my_function(
-        input1: Annotated[DataFrame, InputRow],
-    ) -> Annotated[DataFrame, OutputRow]:
+        input1: Annotated[DataFrame, ProjectAll(InputRow)],
+    ) -> Annotated[DataFrame, ProjectAll(OutputRow)]:
         return input1
 
     result = my_function(input_df)
@@ -218,8 +202,8 @@ def test_transform_strict_null_raises_for_nullability_mismatch(spark: SparkSessi
         types.StructType([types.StructField("field1", types.LongType(), False)]),
     )
 
-    @transform(validate_input="strict_null")
-    def my_function(input1: Annotated[DataFrame, InputRow]):
+    @transform
+    def my_function(input1: Annotated[DataFrame, StrictNull(InputRow)]):
         return input1
 
     with pytest.raises(schemas.SchemaCoercionError) as error:
@@ -240,8 +224,8 @@ def test_transform_project_all_cast_mode_casts_input_dataframe(spark: SparkSessi
         types.StructType([types.StructField("field1", types.DoubleType(), True)]),
     )
 
-    @transform(validate_input="project_all_cast", validate_output=None)
-    def my_function(input1: Annotated[DataFrame, InputRow]):
+    @transform
+    def my_function(input1: Annotated[DataFrame, ProjectAllCast(InputRow)]):
         return input1
 
     result = my_function(input_df)

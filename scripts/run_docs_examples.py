@@ -21,8 +21,12 @@ def write_log(script_path: Path, stream_name: str, content: str) -> None:
 
 def run_example(script_path: Path) -> None:
     print(f"Running {script_path}")
+    if script_path.name.startswith("test_"):
+        executable = [sys.executable, "-m", "pytest", "--show-capture=stdout"]
+    else:
+        executable = [sys.executable]
     result = subprocess.run(
-        [sys.executable, str(script_path)],
+        executable + [str(script_path)],
         capture_output=True,
         cwd=REPOSITORY_ROOT,
         text=True,

@@ -6,7 +6,14 @@ from .pipeline import (
     PipelineExecutionError,
     Step,
 )
-from .transform import transform
+from .transform import (
+    transform,
+    ProjectAll,
+    Strict,
+    ProjectAllCast,
+    Project,
+    StrictNull,
+)
 from .schemas import Schema
 
 __all__ = [
@@ -19,4 +26,9 @@ __all__ = [
     "Schema",
     "Step",
     "transform",
+    "ProjectAll",
+    "Strict",
+    "ProjectAllCast",
+    "Project",
+    "StrictNull",
 ]

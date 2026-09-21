@@ -8,4 +8,4 @@ def test_collection_metadata_returns_none_for_unannotated_output():
     def my_function():
         return "not a dataframe"
 
-    assert collection._specs[my_function].output_schema is None
+    assert collection._specs[my_function].output_contract is None

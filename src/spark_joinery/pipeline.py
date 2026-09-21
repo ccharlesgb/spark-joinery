@@ -6,11 +6,11 @@ from typing import Any, Callable, ParamSpec, Sequence, TypeVar, overload
 
 from pyspark.sql import DataFrame, SparkSession
 
+from spark_joinery.transform import Contract
 from spark_joinery.utils import get_callable_name
 
 from .collection import Collection
 from .dependencies import Context, PipelineContext
-from .schemas import CoercionMode, Schema
 
 Transform = Callable[..., DataFrame | None]
 P = ParamSpec("P")
@@ -26,8 +26,8 @@ class Step:
     name: str
     transform: Transform
     _pipeline: Pipeline
-    _input_schemas: dict[str, Schema[Any]]
-    _output_schema: Schema[Any] | None
+    _input_contracts: dict[str, Contract]
+    _output_contract: Contract | None
     _spark_parameter: str | None
     _context_parameters: dict[str, tuple[type, Context]]
     _upstream_steps: list[Step]
@@ -83,7 +83,7 @@ class ExecutablePipeline:
 
             try:
                 result = step.transform(**arguments)
-                if step._output_schema is not None and not isinstance(
+                if step._output_contract is not None and not isinstance(
                     result, DataFrame
                 ):
                     raise TypeError(
@@ -114,31 +114,20 @@ class Pipeline:
     def transform(
         self,
         f: Callable[P, R],
-        *,
-        validate_input: CoercionMode | None = "project_all",
-        validate_output: CoercionMode | None = "project_all",
     ) -> Callable[P, R]: ...
 
     @overload
     def transform(
         self,
         f: None = None,
-        *,
-        validate_input: CoercionMode | None = "project_all",
-        validate_output: CoercionMode | None = "project_all",
     ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
     def transform(
         self,
         f: Callable[P, R] | None = None,
-        *,
-        validate_input: CoercionMode | None = "project_all",
-        validate_output: CoercionMode | None = "project_all",
     ) -> Callable[P, R] | Callable[[Callable[P, R]], Callable[P, R]]:
         return self._collection.transform(
             f,
-            validate_input=validate_input,
-            validate_output=validate_output,
         )
 
     def _resolve_spec(self, transform: Transform):
@@ -161,8 +150,8 @@ class Pipeline:
             raise ValueError(f"step name '{name}' is already registered")
 
         spec = self._resolve_spec(transform)
-        input_schemas = spec.input_schemas
-        output_schema = spec.output_schema
+        input_schemas = spec.input_contracts
+        output_schema = spec.output_contract
 
         spark_parameter = spec.spark_parameter
         parameter_names = set(inspect.signature(transform).parameters)
@@ -186,8 +175,8 @@ class Pipeline:
             name=name,
             transform=transform,
             _pipeline=self,
-            _input_schemas=input_schemas,
-            _output_schema=output_schema,
+            _input_contracts=input_schemas,
+            _output_contract=output_schema,
             _spark_parameter=spark_parameter,
             _context_parameters=spec.context_parameters,
             _upstream_steps=[],
@@ -232,7 +221,7 @@ class Pipeline:
         for step in self._topological_order():
             bindings: list[tuple[str, Step]] = []
             matched_upstream: set[Step] = set()
-            for parameter_name, expected_schema in step._input_schemas.items():
+            for parameter_name, expected_schema in step._input_contracts.items():
                 explicit_upstream = next(
                     (
                         upstream
@@ -243,9 +232,9 @@ class Pipeline:
                 )
                 if explicit_upstream is not None:
                     if (
-                        explicit_upstream._output_schema is None
-                        or explicit_upstream._output_schema.spark_schema
-                        != expected_schema.spark_schema
+                        explicit_upstream._output_contract is None
+                        or explicit_upstream._output_contract.schema.spark_schema
+                        != expected_schema.schema.spark_schema
                     ):
                         raise ValueError(
                             f"step '{step.name}' parameter '{parameter_name}' is "
@@ -264,9 +253,9 @@ class Pipeline:
                 matches = [
                     upstream
                     for upstream in candidates
-                    if upstream._output_schema is not None
-                    and upstream._output_schema.spark_schema
-                    == expected_schema.spark_schema
+                    if upstream._output_contract is not None
+                    and upstream._output_contract.schema.spark_schema
+                    == expected_schema.schema.spark_schema
                 ]
                 if not matches:
                     raise ValueError(

@@ -7,6 +7,7 @@ from .context import CustomersPath, OutputPath
 from .schemas import Customer, CustomerGroup
 from spark_joinery.collection import Collection
 from spark_joinery.dependencies import Context
+from spark_joinery import Strict
 
 
 customer_group = Collection()
@@ -15,14 +16,14 @@ customer_group = Collection()
 @customer_group.transform
 def read_customers(
     spark: SparkSession, path: Annotated[CustomersPath, Context()]
-) -> Annotated[DataFrame, Customer]:
+) -> Annotated[DataFrame, Strict(Customer)]:
     return spark.read.parquet(path)
 
 
 @customer_group.transform
 def denormalise_group_id(
-    customers: Annotated[DataFrame, Customer],
-) -> Annotated[DataFrame, CustomerGroup]:
+    customers: Annotated[DataFrame, Strict(Customer)],
+) -> Annotated[DataFrame, Strict(CustomerGroup)]:
     customer = customers.alias("customer")
     group = customers.alias("group")
 
@@ -40,7 +41,7 @@ def denormalise_group_id(
 
 @customer_group.transform
 def write_output(
-    order_with_customer_dimension: Annotated[DataFrame, CustomerGroup],
+    order_with_customer_dimension: Annotated[DataFrame, Strict(CustomerGroup)],
     path: Annotated[OutputPath, Context()],
 ) -> None:
     order_with_customer_dimension.write.mode("overwrite").parquet(path)

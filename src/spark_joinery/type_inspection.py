@@ -105,11 +105,11 @@ def get_spark_type_from_python_type(python_type: type) -> types.DataType:
     python_type = normalize_python_type(python_type)
 
     if python_type is int:
-        return types.IntegerType()
+        return types.LongType()
     elif python_type is str:
         return types.StringType()
     elif python_type is float:
-        return types.FloatType()
+        return types.DoubleType()
     elif python_type is bool:
         return types.BooleanType()
     elif python_type is datetime.datetime:

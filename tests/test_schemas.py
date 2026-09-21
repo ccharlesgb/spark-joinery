@@ -31,7 +31,7 @@ def test_get_dataframe_makes_spark_dataframe(spark: SparkSession):
 
     expected_schema = types.StructType(
         [
-            types.StructField("field1", types.IntegerType(), False),
+            types.StructField("field1", types.LongType(), False),
             types.StructField("field2", types.StringType(), False),
         ]
     )
@@ -65,7 +65,7 @@ def test_get_dataframe_with_nested_schemas(spark: SparkSession):
                 "nested",
                 types.StructType(
                     [
-                        types.StructField("nested_field1", types.IntegerType(), False),
+                        types.StructField("nested_field1", types.LongType(), False),
                         types.StructField("nested_field2", types.StringType(), False),
                     ]
                 ),
@@ -109,7 +109,7 @@ def test_get_dataframe_makes_spark_dataframe_from_pydantic_rows(spark: SparkSess
 
     expected_schema = types.StructType(
         [
-            types.StructField("field1", types.IntegerType(), True),
+            types.StructField("field1", types.LongType(), True),
             types.StructField("field2", types.StringType(), True),
         ]
     )
@@ -138,7 +138,7 @@ def test_get_spark_schema_from_model_returns_struct_type_for_dataclass():
     actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
     expected_schema = types.StructType(
         [
-            types.StructField("field1", types.IntegerType(), True),
+            types.StructField("field1", types.LongType(), True),
             types.StructField("field2", types.StringType(), True),
         ]
     )
@@ -178,7 +178,7 @@ def test_get_spark_schema_from_model_returns_struct_type_for_dataclass_with_opti
     actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
     expected_schema = types.StructType(
         [
-            types.StructField("field1", types.IntegerType(), True),
+            types.StructField("field1", types.LongType(), True),
             types.StructField("field2", types.StringType(), True),
         ]
     )
@@ -203,7 +203,7 @@ def test_get_spark_schema_from_model_returns_nested_schema():
                 "field1",
                 types.StructType(
                     [
-                        types.StructField("nested_field1", types.IntegerType(), True),
+                        types.StructField("nested_field1", types.LongType(), True),
                         types.StructField("nested_field2", types.StringType(), True),
                     ]
                 ),
@@ -238,18 +238,18 @@ def test_get_spark_schema_with_array_fields():
                 "array_field", types.ArrayType(types.StringType(), True), True
             ),
             types.StructField(
-                "optional_array_field", types.ArrayType(types.IntegerType(), True), True
+                "optional_array_field", types.ArrayType(types.LongType(), True), True
             ),
             types.StructField(
                 "array_field_with_optional_elements",
-                types.ArrayType(types.FloatType(), True),
+                types.ArrayType(types.DoubleType(), True),
                 True,
             ),
             types.StructField(
                 "array_field_of_datclasses",
                 types.ArrayType(
                     types.StructType(
-                        [types.StructField("nested_field", types.IntegerType(), True)]
+                        [types.StructField("nested_field", types.LongType(), True)]
                     ),
                     True,
                 ),
@@ -259,7 +259,7 @@ def test_get_spark_schema_with_array_fields():
                 "array_field_of_optional_datclasses",
                 types.ArrayType(
                     types.StructType(
-                        [types.StructField("nested_field", types.IntegerType(), True)]
+                        [types.StructField("nested_field", types.LongType(), True)]
                     ),
                     True,
                 ),
@@ -269,7 +269,7 @@ def test_get_spark_schema_with_array_fields():
                 "optional_array_field_of_optional_datclasses",
                 types.ArrayType(
                     types.StructType(
-                        [types.StructField("nested_field", types.IntegerType(), True)]
+                        [types.StructField("nested_field", types.LongType(), True)]
                     ),
                     True,
                 ),
@@ -288,7 +288,7 @@ def test_get_spark_schema_from_model_returns_struct_type_for_pydantic_model():
     actual_schema = schemas.get_spark_schema_from_model(Product)
     expected_schema = types.StructType(
         [
-            types.StructField("product_id", types.IntegerType(), True),
+            types.StructField("product_id", types.LongType(), True),
             types.StructField("product_name", types.StringType(), True),
         ]
     )
@@ -306,12 +306,12 @@ def test_get_spark_schema_from_model_returns_nested_schema_for_pydantic_models()
     actual_schema = schemas.get_spark_schema_from_model(Order)
     expected_schema = types.StructType(
         [
-            types.StructField("order_id", types.IntegerType(), True),
+            types.StructField("order_id", types.LongType(), True),
             types.StructField(
                 "products",
                 types.ArrayType(
                     types.StructType(
-                        [types.StructField("product_id", types.IntegerType(), True)]
+                        [types.StructField("product_id", types.LongType(), True)]
                     ),
                     True,
                 ),

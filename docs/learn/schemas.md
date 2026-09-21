@@ -69,7 +69,7 @@ Which outputs:
 By default Spark Joinery will use the documented [conversions](https://spark.apache.org/docs/latest/api/python/tutorial/sql/type_conversions.html#all-conversions) to map Python types to Spark types. However,
 this might not be suitable for all use cases for example if you have a `DecimalType` or `VarcharType`. These types cannot be expressed in normal Python so you have to use `Annotated` to override the type in the schema.
 
-There are also some Python types that can map to multiple spark types and this module has made a choice. For example `int` -> `IntegerType` and `float` -> `FloatType`
+There are also some Python types that can map to multiple spark types and this module has made a choice. For example `int` -> `LongType` and `float` -> `DoubleType`
 
 ## A note on nullability
 

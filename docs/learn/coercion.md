@@ -3,8 +3,8 @@
 Coercion in Spark Joinery is the process of automatically converting an input DataFrame to a specified schema. There
 are several modes available to control how strict/relaxed the coercion process should be for your transformations.
 
-We can use the method `coerce_dataframe_to_model` to take an input DataFrame and return either a new DataFrame that
-matches a models schema or raise a validation error if the coercion fails based no the mode's strictness.
+Use `Schema(Model).coerce_dataframe()` to take an input DataFrame and return either a new DataFrame that
+matches the model's schema or raise a validation error if coercion fails based on the mode's strictness.
 
 By default Spark Joinery will project the input DataFrame
 onto the desired schema, including nested struct fields. It will **not** perform any type casting, and it will

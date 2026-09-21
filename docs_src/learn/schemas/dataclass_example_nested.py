@@ -1,4 +1,4 @@
-from spark_joinery import get_spark_schema_from_model, pretty_print_struct_type
+from spark_joinery import Schema
 from dataclasses import dataclass
 
 
@@ -22,5 +22,5 @@ class Customer:
     location: Location
 
 
-schema = get_spark_schema_from_model(Customer)
-pretty_print_struct_type(schema)
+schema = Schema(Customer)
+print(schema.pretty_schema)

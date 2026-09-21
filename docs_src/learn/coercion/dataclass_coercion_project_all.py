@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
 from pyspark.sql import SparkSession
-from pyspark.sql.types import IntegerType, StringType, StructField, StructType
-from spark_joinery import coerce_dataframe_to_model, pretty_print_struct_type
+from pyspark.sql.types import LongType, StringType, StructField, StructType
+from spark_joinery import Schema
 
 
 @dataclass
@@ -21,7 +21,7 @@ df = spark.createDataFrame(
     [(1, ("London", "England")), (2, ("Paris", "France"))],
     schema=StructType(
         [
-            StructField("customer_id", IntegerType(), nullable=True),
+            StructField("customer_id", LongType(), nullable=True),
             StructField(
                 "address",
                 StructType(
@@ -36,6 +36,6 @@ df = spark.createDataFrame(
     ),
 )
 
-df = coerce_dataframe_to_model(df, Customer, mode="project_all")
+df = Schema(Customer).coerce_dataframe(df, mode="project_all")
 df.show()
-pretty_print_struct_type(df.schema)
+print(Schema(Customer).pretty_schema)

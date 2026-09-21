@@ -6,12 +6,12 @@
 +-----------+--------+
 
 StructType([
-    StructField('customer_id', IntegerType(), True),
+    StructField('customer_id', LongType(), True),
     StructField(
         'address',
         StructType([
             StructField('city', StringType(), True)
         ]),
-        False
+        True
     )
 ])

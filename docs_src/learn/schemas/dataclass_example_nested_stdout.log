@@ -15,8 +15,8 @@ StructType([
     StructField(
         'location',
         StructType([
-            StructField('latitude', FloatType(), True),
-            StructField('longitude', FloatType(), True)
+            StructField('latitude', DoubleType(), True),
+            StructField('longitude', DoubleType(), True)
         ]),
         True
     )

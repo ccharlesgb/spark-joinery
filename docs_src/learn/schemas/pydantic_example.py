@@ -1,9 +1,8 @@
-from spark_joinery import get_spark_schema_from_model
+from spark_joinery import Schema
 from pydantic import BaseModel, Field
 from typing import Annotated
 from decimal import Decimal
 from pyspark.sql.types import DecimalType
-from spark_joinery import pretty_print_struct_type
 
 
 class Customer(BaseModel):
@@ -14,5 +13,5 @@ class Customer(BaseModel):
     max_billing_amount: Annotated[Decimal, DecimalType(precision=10, scale=2)]
 
 
-schema = get_spark_schema_from_model(Customer)
-pretty_print_struct_type(schema)
+schema = Schema(Customer)
+print(schema.pretty_schema)

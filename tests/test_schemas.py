@@ -5,8 +5,14 @@ import pytest
 from pyspark.sql import SparkSession, types
 from pyspark.testing import assertDataFrameEqual
 from pydantic import BaseModel
-
-from spark_joinery import schemas
+from spark_joinery.schemas import (
+    Strict,
+    StrictNull,
+    Project,
+    ProjectAll,
+    ProjectAllCast,
+)
+from spark_joinery import Schema, schemas
 
 
 @pytest.fixture(scope="session")
@@ -20,14 +26,25 @@ def spark() -> Generator[SparkSession, None, None]:
     spark.stop()
 
 
-def test_get_dataframe_makes_spark_dataframe(spark: SparkSession):
+def test_schema_rejects_a_non_schema_model():
+    class NotASchemaModel:
+        pass
+
+    with pytest.raises(
+        ValueError,
+        match="NotASchemaModel is neither a dataclass nor a pydantic model",
+    ):
+        Schema(NotASchemaModel)
+
+
+def test_schema_create_dataframe_makes_spark_dataframe(spark: SparkSession):
     @dataclass
     class MyDataClass:
         field1: int
         field2: str
 
     rows = [MyDataClass(1, "a"), MyDataClass(2, "b")]
-    dataframe = schemas.get_dataframe(spark, MyDataClass, rows)
+    dataframe = Schema(MyDataClass).create_dataframe(spark, rows)
 
     expected_schema = types.StructType(
         [
@@ -41,7 +58,7 @@ def test_get_dataframe_makes_spark_dataframe(spark: SparkSession):
     )
 
 
-def test_get_dataframe_with_nested_schemas(spark: SparkSession):
+def test_schema_create_dataframe_with_nested_schemas(spark: SparkSession):
     @dataclass
     class NestedDataClass:
         nested_field1: int
@@ -56,7 +73,7 @@ def test_get_dataframe_with_nested_schemas(spark: SparkSession):
         MyDataClass("a", NestedDataClass(1, "x")),
         MyDataClass("b", NestedDataClass(2, "y")),
     ]
-    dataframe = schemas.get_dataframe(spark, MyDataClass, rows)
+    dataframe = Schema(MyDataClass).create_dataframe(spark, rows)
 
     expected_schema = types.StructType(
         [
@@ -80,7 +97,7 @@ def test_get_dataframe_with_nested_schemas(spark: SparkSession):
     )
 
 
-def test_get_dataframe_raises_value_error_for_rows_with_different_schemas(
+def test_schema_create_dataframe_rejects_rows_of_a_different_type(
     spark: SparkSession,
 ):
     @dataclass
@@ -96,16 +113,18 @@ def test_get_dataframe_raises_value_error_for_rows_with_different_schemas(
     with pytest.raises(
         ValueError, match="Row 1 of type MyDataClass2. Expected type MyDataClass"
     ):
-        schemas.get_dataframe(spark, MyDataClass, rows)
+        Schema(MyDataClass).create_dataframe(spark, rows)  # type: ignore
 
 
-def test_get_dataframe_makes_spark_dataframe_from_pydantic_rows(spark: SparkSession):
+def test_schema_create_dataframe_makes_spark_dataframe_from_pydantic_rows(
+    spark: SparkSession,
+):
     class Product(BaseModel):
         field1: int
         field2: str
 
     rows = [Product(field1=1, field2="a"), Product(field1=2, field2="b")]
-    dataframe = schemas.get_dataframe(spark, Product, rows)
+    dataframe = Schema(Product).create_dataframe(spark, rows)
 
     expected_schema = types.StructType(
         [
@@ -119,23 +138,13 @@ def test_get_dataframe_makes_spark_dataframe_from_pydantic_rows(spark: SparkSess
     )
 
 
-def test_get_spark_schema_from_model_raises_value_error_for_non_schema_model():
-    class NotADataclass:
-        pass
-
-    with pytest.raises(
-        ValueError, match="NotADataclass is neither a dataclass nor a pydantic model"
-    ):
-        schemas.get_spark_schema_from_model(NotADataclass)
-
-
-def test_get_spark_schema_from_model_returns_struct_type_for_dataclass():
+def test_schema_spark_schema_returns_struct_type_for_dataclass():
     @dataclass
     class MyDataClass:
         field1: int
         field2: str
 
-    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
+    actual_schema = Schema(MyDataClass).spark_schema
     expected_schema = types.StructType(
         [
             types.StructField("field1", types.LongType(), True),
@@ -145,37 +154,37 @@ def test_get_spark_schema_from_model_returns_struct_type_for_dataclass():
     assert actual_schema == expected_schema
 
 
-def test_get_spark_schema_from_model_honors_annotated_spark_type():
+def test_schema_spark_schema_honors_annotated_spark_type():
     @dataclass
     class MyDataClass:
         field1: Annotated[float, types.DoubleType()]
 
-    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
+    actual_schema = Schema(MyDataClass).spark_schema
 
     assert actual_schema == types.StructType(
         [types.StructField("field1", types.DoubleType(), True)]
     )
 
 
-def test_get_spark_schema_from_model_honors_annotated_array_element_type():
+def test_schema_spark_schema_honors_annotated_array_element_type():
     @dataclass
     class MyDataClass:
         field1: list[Annotated[float, types.DoubleType()]]
 
-    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
+    actual_schema = Schema(MyDataClass).spark_schema
 
     assert actual_schema == types.StructType(
         [types.StructField("field1", types.ArrayType(types.DoubleType(), True), True)]
     )
 
 
-def test_get_spark_schema_from_model_returns_struct_type_for_dataclass_with_optional_fields():
+def test_schema_spark_schema_returns_struct_type_for_optional_fields():
     @dataclass
     class MyDataClass:
         field1: Optional[int]
         field2: str | None
 
-    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
+    actual_schema = Schema(MyDataClass).spark_schema
     expected_schema = types.StructType(
         [
             types.StructField("field1", types.LongType(), True),
@@ -185,7 +194,7 @@ def test_get_spark_schema_from_model_returns_struct_type_for_dataclass_with_opti
     assert actual_schema == expected_schema
 
 
-def test_get_spark_schema_from_model_returns_nested_schema():
+def test_schema_spark_schema_returns_nested_schema():
     @dataclass
     class NestedDataClass:
         nested_field1: int
@@ -196,7 +205,7 @@ def test_get_spark_schema_from_model_returns_nested_schema():
         field1: NestedDataClass
         field2: str
 
-    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
+    actual_schema = Schema(MyDataClass).spark_schema
     expected_schema = types.StructType(
         [
             types.StructField(
@@ -215,7 +224,7 @@ def test_get_spark_schema_from_model_returns_nested_schema():
     assert actual_schema == expected_schema
 
 
-def test_get_spark_schema_with_array_fields():
+def test_schema_spark_schema_returns_array_fields():
     @dataclass
     class NestedDataClass:
         nested_field: int
@@ -231,7 +240,7 @@ def test_get_spark_schema_with_array_fields():
             list[Optional[NestedDataClass]]
         ]
 
-    actual_schema = schemas.get_spark_schema_from_model(MyDataClass)
+    actual_schema = Schema(MyDataClass).spark_schema
     expected_schema = types.StructType(
         [
             types.StructField(
@@ -280,12 +289,12 @@ def test_get_spark_schema_with_array_fields():
     assert actual_schema == expected_schema
 
 
-def test_get_spark_schema_from_model_returns_struct_type_for_pydantic_model():
+def test_schema_spark_schema_returns_struct_type_for_pydantic_model():
     class Product(BaseModel):
         product_id: int
         product_name: str
 
-    actual_schema = schemas.get_spark_schema_from_model(Product)
+    actual_schema = Schema(Product).spark_schema
     expected_schema = types.StructType(
         [
             types.StructField("product_id", types.LongType(), True),
@@ -295,7 +304,7 @@ def test_get_spark_schema_from_model_returns_struct_type_for_pydantic_model():
     assert actual_schema == expected_schema
 
 
-def test_get_spark_schema_from_model_returns_nested_schema_for_pydantic_models():
+def test_schema_spark_schema_returns_nested_pydantic_schema():
     class Product(BaseModel):
         product_id: int
 
@@ -303,7 +312,7 @@ def test_get_spark_schema_from_model_returns_nested_schema_for_pydantic_models()
         order_id: int
         products: list[Product]
 
-    actual_schema = schemas.get_spark_schema_from_model(Order)
+    actual_schema = Schema(Order).spark_schema
     expected_schema = types.StructType(
         [
             types.StructField("order_id", types.LongType(), True),
@@ -582,29 +591,27 @@ def test_schema_coercion_error_exposes_all_violations():
     )
 
 
-# --- coerce_dataframe: strict ---
+# --- Schema.coerce_dataframe: strict ---
 
 
-def test_coerce_dataframe_strict_passes_when_schemas_match_apart_from_nullable(
+def test_schema_coerce_dataframe_strict_ignores_nullable_mismatches(
     spark: SparkSession,
 ):
+    @dataclass
+    class TargetRow:
+        a: int
+        b: str
+
     dataframe = spark.createDataFrame(
         [(1, "a")],
         types.StructType(
             [
-                types.StructField("a", types.IntegerType(), False),
+                types.StructField("a", types.LongType(), False),
                 types.StructField("b", types.StringType(), True),
             ]
         ),
     )
-    schema = types.StructType(
-        [
-            types.StructField("a", types.IntegerType(), True),
-            types.StructField("b", types.StringType(), True),
-        ]
-    )
-
-    result = schemas.coerce_dataframe(dataframe, schema, "strict")
+    result = Schema(TargetRow).coerce_dataframe(dataframe, "strict")
 
     assert result.schema == dataframe.schema
 
@@ -619,7 +626,7 @@ def test_coerce_dataframe_strict_null_raises_for_nullable_mismatch(
     schema = types.StructType([types.StructField("value", types.IntegerType(), True)])
 
     with pytest.raises(schemas.SchemaCoercionError) as error:
-        schemas.coerce_dataframe(dataframe, schema, "strict_null")
+        StrictNull()(dataframe, schema)
 
     assert [
         (violation.kind, violation.path) for violation in error.value.violations
@@ -639,7 +646,7 @@ def test_coerce_dataframe_strict_raises_for_extra_column(spark: SparkSession):
     schema = types.StructType([types.StructField("a", types.IntegerType(), True)])
 
     with pytest.raises(schemas.SchemaCoercionError):
-        schemas.coerce_dataframe(dataframe, schema, "strict")
+        Strict()(dataframe, schema)
 
 
 def test_coerce_dataframe_strict_raises_for_type_mismatch(spark: SparkSession):
@@ -649,10 +656,10 @@ def test_coerce_dataframe_strict_raises_for_type_mismatch(spark: SparkSession):
     schema = types.StructType([types.StructField("a", types.StringType(), True)])
 
     with pytest.raises(schemas.SchemaCoercionError):
-        schemas.coerce_dataframe(dataframe, schema, "strict")
+        Strict()(dataframe, schema)
 
 
-# --- coerce_dataframe: project ---
+# --- _coerce_dataframe: project ---
 
 
 def test_coerce_dataframe_project_selects_subset_of_columns(spark: SparkSession):
@@ -673,7 +680,7 @@ def test_coerce_dataframe_project_selects_subset_of_columns(spark: SparkSession)
         ]
     )
 
-    result = schemas.coerce_dataframe(dataframe, schema, "project")
+    result = Project()(dataframe, schema)
 
     assert result.columns == ["a", "b"]
     assert result.collect() == [types.Row(a=1, b="a")]
@@ -691,7 +698,7 @@ def test_coerce_dataframe_project_raises_for_missing_column(spark: SparkSession)
     )
 
     with pytest.raises(schemas.SchemaCoercionError):
-        schemas.coerce_dataframe(dataframe, schema, "project")
+        Project()(dataframe, schema)
 
 
 def test_coerce_dataframe_project_raises_for_type_mismatch(spark: SparkSession):
@@ -701,7 +708,7 @@ def test_coerce_dataframe_project_raises_for_type_mismatch(spark: SparkSession):
     schema = types.StructType([types.StructField("a", types.StringType(), True)])
 
     with pytest.raises(schemas.SchemaCoercionError):
-        schemas.coerce_dataframe(dataframe, schema, "project")
+        Project()(dataframe, schema)
 
 
 def test_coerce_dataframe_project_reports_every_missing_and_type_mismatch(
@@ -719,7 +726,7 @@ def test_coerce_dataframe_project_reports_every_missing_and_type_mismatch(
     )
 
     with pytest.raises(schemas.SchemaCoercionError) as error:
-        schemas.coerce_dataframe(dataframe, schema, "project")
+        Project()(dataframe, schema)
 
     assert [
         (violation.kind, violation.path) for violation in error.value.violations
@@ -729,7 +736,7 @@ def test_coerce_dataframe_project_reports_every_missing_and_type_mismatch(
     ]
 
 
-# --- coerce_dataframe: project_all ---
+# --- _coerce_dataframe: project_all ---
 
 
 def test_coerce_dataframe_project_all_prunes_nested_struct_fields(spark: SparkSession):
@@ -760,7 +767,7 @@ def test_coerce_dataframe_project_all_prunes_nested_struct_fields(spark: SparkSe
         ]
     )
 
-    result = schemas.coerce_dataframe(dataframe, schema, "project_all")
+    result = ProjectAll()(dataframe, schema)
 
     assert result.collect() == [types.Row(a=types.Row(a1=1))]
 
@@ -801,7 +808,7 @@ def test_coerce_dataframe_project_all_prunes_array_of_struct_fields(
         ]
     )
 
-    result = schemas.coerce_dataframe(dataframe, schema, "project_all")
+    result = ProjectAll()(dataframe, schema)
 
     assert result.collect() == [types.Row(items=[types.Row(a1=1), types.Row(a1=3)])]
 
@@ -839,7 +846,7 @@ def test_coerce_dataframe_project_all_raises_for_missing_nested_field(
     )
 
     with pytest.raises(schemas.SchemaCoercionError):
-        schemas.coerce_dataframe(dataframe, schema, "project_all")
+        ProjectAll()(dataframe, schema)
 
 
 def test_coerce_dataframe_project_all_raises_for_nested_type_mismatch(
@@ -870,10 +877,10 @@ def test_coerce_dataframe_project_all_raises_for_nested_type_mismatch(
     )
 
     with pytest.raises(schemas.SchemaCoercionError):
-        schemas.coerce_dataframe(dataframe, schema, "project_all")
+        ProjectAll()(dataframe, schema)
 
 
-# --- coerce_dataframe: project_all_cast ---
+# --- _coerce_dataframe: project_all_cast ---
 
 
 def test_coerce_dataframe_project_all_cast_casts_mismatched_leaf_types(
@@ -884,7 +891,7 @@ def test_coerce_dataframe_project_all_cast_casts_mismatched_leaf_types(
     )
     schema = types.StructType([types.StructField("a", types.IntegerType(), True)])
 
-    result = schemas.coerce_dataframe(dataframe, schema, "project_all_cast")
+    result = ProjectAllCast()(dataframe, schema)
 
     assert result.collect() == [types.Row(a=1)]
 
@@ -916,7 +923,7 @@ def test_coerce_dataframe_project_all_cast_casts_nested_struct_fields(
         ]
     )
 
-    result = schemas.coerce_dataframe(dataframe, schema, "project_all_cast")
+    result = ProjectAllCast()(dataframe, schema)
 
     assert result.collect() == [types.Row(a=types.Row(a1=1))]
 
@@ -954,7 +961,7 @@ def test_coerce_dataframe_project_all_cast_casts_array_of_struct_fields(
         ]
     )
 
-    result = schemas.coerce_dataframe(dataframe, schema, "project_all_cast")
+    result = ProjectAllCast()(dataframe, schema)
 
     assert result.collect() == [types.Row(items=[types.Row(a1=1), types.Row(a1=2)])]
 
@@ -973,7 +980,7 @@ def test_coerce_dataframe_project_all_cast_raises_for_missing_field(
     )
 
     with pytest.raises(schemas.SchemaCoercionError):
-        schemas.coerce_dataframe(dataframe, schema, "project_all_cast")
+        ProjectAllCast()(dataframe, schema)
 
 
 def test_coerce_dataframe_project_all_cast_reports_every_unsupported_cast(
@@ -997,7 +1004,7 @@ def test_coerce_dataframe_project_all_cast_reports_every_unsupported_cast(
     )
 
     with pytest.raises(schemas.SchemaCoercionError) as error:
-        schemas.coerce_dataframe(dataframe, schema, "project_all_cast")
+        ProjectAllCast()(dataframe, schema)
 
     assert [
         (violation.kind, violation.path) for violation in error.value.violations

@@ -6,6 +6,6 @@
 +-----------+-----+
 
 StructType([
-    StructField('customer_id', IntegerType(), True),
+    StructField('customer_id', LongType(), True),
     StructField('name', StringType(), True)
 ])

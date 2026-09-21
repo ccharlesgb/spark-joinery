@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pyspark.sql import SparkSession
-from spark_joinery import get_dataframe
+from spark_joinery import Schema
 
 
 @dataclass
@@ -17,5 +17,7 @@ rows = [
     Customer("2", "Bob", False),
     Customer("3", "Charlie", True),
 ]
-df = get_dataframe(spark, Customer, rows)
+
+schema = Schema(Customer)
+df = schema.create_dataframe(spark, rows)
 df.show()

@@ -7,13 +7,7 @@ from .pipeline import (
     Step,
 )
 from .transform import transform
-from .schemas import (
-    coerce_dataframe,
-    coerce_dataframe_to_model,
-    get_dataframe,
-    get_spark_schema_from_model,
-)
-from .utils import pretty_print_struct_type
+from .schemas import Schema
 
 __all__ = [
     "Collection",
@@ -22,11 +16,7 @@ __all__ = [
     "Pipeline",
     "PipelineExecutionError",
     "PipelineContext",
+    "Schema",
     "Step",
     "transform",
-    "coerce_dataframe",
-    "coerce_dataframe_to_model",
-    "get_dataframe",
-    "get_spark_schema_from_model",
-    "pretty_print_struct_type",
 ]

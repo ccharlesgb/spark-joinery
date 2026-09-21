@@ -1,9 +1,10 @@
 from dataclasses import dataclass, fields, is_dataclass
-from functools import partial
 from collections.abc import Sequence
-from typing import Any, Callable, Literal, TypeVar
+from typing import Any, Callable, Literal, Protocol, TypeVar
 
 from pyspark.sql import Column, DataFrame, SparkSession, functions as F, types
+
+from spark_joinery.utils import pretty_struct_type
 
 from . import type_inspection
 
@@ -452,7 +453,7 @@ def _get_model_fields(klass: type[Any]) -> list[tuple[str, Any]]:
     raise ValueError(f"{klass.__name__} is neither a dataclass nor a pydantic model")
 
 
-def get_spark_schema_from_model(klass: type[T]) -> types.StructType:
+def _get_spark_schema_from_model(klass: type[T]) -> types.StructType:
     if not is_schema_model(klass):
         raise ValueError(
             f"{klass.__name__} is neither a dataclass nor a pydantic model"
@@ -466,24 +467,6 @@ def get_spark_schema_from_model(klass: type[T]) -> types.StructType:
     return types.StructType(struct_fields)
 
 
-def get_dataframe(
-    spark: SparkSession, row_type: type[T], rows: Sequence[T]
-) -> DataFrame:
-    for index, row in enumerate(rows):
-        if not isinstance(row, row_type):
-            raise ValueError(
-                f"Row {index} of type {row.__class__.__name__}. Expected type {row_type.__name__}"
-            )
-
-    serialized_rows = [
-        model_dump(mode="python")
-        if callable(model_dump := getattr(row, "model_dump", None))
-        else row
-        for row in rows
-    ]
-    return spark.createDataFrame(serialized_rows, get_spark_schema_from_model(row_type))
-
-
 def _get_spark_field_type(field_type: Any) -> types.DataType:
     annotated_spark_type = type_inspection.spark_type_from_annotated(field_type)
     if annotated_spark_type is not None:
@@ -492,7 +475,7 @@ def _get_spark_field_type(field_type: Any) -> types.DataType:
     normalized_type = type_inspection.normalize_python_type(field_type)
 
     if is_schema_model(normalized_type):
-        return get_spark_schema_from_model(normalized_type)
+        return _get_spark_schema_from_model(normalized_type)
 
     if type_inspection.is_list(normalized_type):
         element_type = type_inspection.get_list_element_type(normalized_type)
@@ -606,28 +589,94 @@ def _project_fields(
     return dataframe.select(*columns)
 
 
+class SchemaCoercionMode(Protocol):
+    def __call__(self, dataframe: DataFrame, schema: types.StructType) -> DataFrame: ...
+
+
+class Strict(SchemaCoercionMode):
+    def __call__(self, dataframe: DataFrame, schema: types.StructType) -> DataFrame:
+        return _coerce_strict(dataframe, schema, mode="strict", ignore_nullable=True)
+
+
+class StrictNull(SchemaCoercionMode):
+    def __call__(self, dataframe: DataFrame, schema: types.StructType) -> DataFrame:
+        return _coerce_strict(
+            dataframe, schema, mode="strict_null", ignore_nullable=False
+        )
+
+
+class Project(SchemaCoercionMode):
+    def __call__(self, dataframe: DataFrame, schema: types.StructType) -> DataFrame:
+        return _project_fields(
+            dataframe, schema, mode="project", cast=False, recurse=False
+        )
+
+
+class ProjectAll(SchemaCoercionMode):
+    def __call__(self, dataframe: DataFrame, schema: types.StructType) -> DataFrame:
+        return _project_fields(
+            dataframe, schema, mode="project_all", cast=False, recurse=True
+        )
+
+
+class ProjectAllCast(SchemaCoercionMode):
+    def __call__(self, dataframe: DataFrame, schema: types.StructType) -> DataFrame:
+        return _project_fields(
+            dataframe, schema, mode="project_all_cast", cast=True, recurse=True
+        )
+
+
 _MODE_HANDLERS: dict[
     CoercionMode, Callable[[DataFrame, types.StructType], DataFrame]
 ] = {
-    "strict": partial(_coerce_strict, mode="strict", ignore_nullable=True),
-    "strict_null": partial(_coerce_strict, mode="strict_null", ignore_nullable=False),
-    "project": partial(_project_fields, mode="project", cast=False, recurse=False),
-    "project_all": partial(
-        _project_fields, mode="project_all", cast=False, recurse=True
-    ),
-    "project_all_cast": partial(
-        _project_fields, mode="project_all_cast", cast=True, recurse=True
-    ),
+    "strict": Strict(),
+    "strict_null": StrictNull(),
+    "project": Project(),
+    "project_all": ProjectAll(),
+    "project_all_cast": ProjectAllCast(),
 }
 
 
-def coerce_dataframe(
-    dataframe: DataFrame, schema: types.StructType, mode: CoercionMode = "project_all"
-) -> DataFrame:
-    return _MODE_HANDLERS[mode](dataframe, schema)
+class Schema[T]:
+    def __init__(self, model: type[T]):
+        if not is_schema_model(model):
+            raise ValueError(
+                f"{model.__name__} is neither a dataclass nor a pydantic model"
+            )
+        self.model = model
+        self._spark_schema = _get_spark_schema_from_model(self.model)
 
+    @property
+    def spark_schema(self) -> types.StructType:
+        return self._spark_schema
 
-def coerce_dataframe_to_model(
-    dataframe: DataFrame, klass: type[T], mode: CoercionMode = "project_all"
-) -> DataFrame:
-    return coerce_dataframe(dataframe, get_spark_schema_from_model(klass), mode)
+    def create_dataframe(self, spark: SparkSession, rows: Sequence[T]) -> DataFrame:
+        for index, row in enumerate(rows):
+            if not isinstance(row, self.model):
+                raise ValueError(
+                    f"Row {index} of type {row.__class__.__name__}. Expected type {self.model.__name__}"
+                )
+
+        serialized_rows = [
+            model_dump(mode="python")
+            if callable(model_dump := getattr(row, "model_dump", None))
+            else row
+            for row in rows
+        ]
+        return spark.createDataFrame(serialized_rows, self.spark_schema)
+
+    def coerce_dataframe(
+        self, dataframe: DataFrame, mode: CoercionMode = "project_all"
+    ) -> DataFrame:
+        try:
+            handler = _MODE_HANDLERS[mode]
+            return handler(dataframe, self.spark_schema)
+        except KeyError as e:
+            raise ValueError(f"Unsupported coercion mode: {mode}") from e
+
+    def __repr__(self) -> str:
+        return f"Schema(model={self.model.__name__})"
+
+    @property
+    def pretty_schema(self) -> str:
+        return pretty_struct_type(self.spark_schema)

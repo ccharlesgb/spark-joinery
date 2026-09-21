@@ -2,6 +2,6 @@ StructType([
     StructField('customer_id', StringType(), True),
     StructField('name', StringType(), True),
     StructField('is_active', BooleanType(), True),
-    StructField('discount_rate', FloatType(), True),
+    StructField('discount_rate', DoubleType(), True),
     StructField('max_billing_amount', DecimalType(38,18), True)
 ])

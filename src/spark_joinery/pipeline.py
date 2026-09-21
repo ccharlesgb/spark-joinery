@@ -4,13 +4,13 @@ import inspect
 from dataclasses import dataclass
 from typing import Any, Callable, ParamSpec, Sequence, TypeVar, overload
 
-from pyspark.sql import DataFrame, SparkSession, types
+from pyspark.sql import DataFrame, SparkSession
 
 from spark_joinery.utils import get_callable_name
 
 from .collection import Collection
 from .dependencies import Context, PipelineContext
-from .schemas import CoercionMode
+from .schemas import CoercionMode, Schema
 
 Transform = Callable[..., DataFrame | None]
 P = ParamSpec("P")
@@ -26,8 +26,8 @@ class Step:
     name: str
     transform: Transform
     _pipeline: Pipeline
-    _input_schemas: dict[str, types.StructType]
-    _output_schema: types.StructType | None
+    _input_schemas: dict[str, Schema[Any]]
+    _output_schema: Schema[Any] | None
     _spark_parameter: str | None
     _context_parameters: dict[str, tuple[type, Context]]
     _upstream_steps: list[Step]
@@ -242,7 +242,11 @@ class Pipeline:
                     None,
                 )
                 if explicit_upstream is not None:
-                    if explicit_upstream._output_schema != expected_schema:
+                    if (
+                        explicit_upstream._output_schema is None
+                        or explicit_upstream._output_schema.spark_schema
+                        != expected_schema.spark_schema
+                    ):
                         raise ValueError(
                             f"step '{step.name}' parameter '{parameter_name}' is "
                             f"explicitly bound to '{explicit_upstream.name}' but its "
@@ -260,7 +264,9 @@ class Pipeline:
                 matches = [
                     upstream
                     for upstream in candidates
-                    if upstream._output_schema == expected_schema
+                    if upstream._output_schema is not None
+                    and upstream._output_schema.spark_schema
+                    == expected_schema.spark_schema
                 ]
                 if not matches:
                     raise ValueError(

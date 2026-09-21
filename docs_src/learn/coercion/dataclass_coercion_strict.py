@@ -3,7 +3,7 @@ from pyspark.sql import SparkSession
 from dataclasses import dataclass
 import traceback
 from pyspark.sql.types import StringType, StructField, StructType
-from spark_joinery import coerce_dataframe_to_model
+from spark_joinery import Schema
 
 
 @dataclass
@@ -28,6 +28,6 @@ df = spark.createDataFrame(
 )
 
 try:
-    coerce_dataframe_to_model(df, Customer, mode="strict")
+    Schema(Customer).coerce_dataframe(df, mode="strict")
 except Exception:
     print(traceback.format_exc(limit=1))

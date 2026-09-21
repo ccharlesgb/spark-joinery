@@ -15,17 +15,15 @@ from typing import (
 )
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql import types
 
-from . import schemas
 from .dependencies import Context
-from .schemas import CoercionMode
+from .schemas import CoercionMode, Schema
 
 P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def _get_annotated_dataframe_schema_model(annotation: Any) -> type[Any] | None:
+def _get_annotated_dataframe_schema(annotation: Any) -> Schema[Any] | None:
     if get_origin(annotation) is not Annotated:
         return None
 
@@ -39,8 +37,11 @@ def _get_annotated_dataframe_schema_model(annotation: Any) -> type[Any] | None:
         return None
 
     for metadata_value in metadata:
-        if isinstance(metadata_value, type) and schemas.is_schema_model(metadata_value):
-            return metadata_value
+        if isinstance(metadata_value, type):
+            try:
+                return Schema(metadata_value)
+            except ValueError:
+                continue
 
     return None
 
@@ -64,8 +65,8 @@ def _get_context_marker(annotation: Any) -> tuple[type, Context] | None:
 
 @dataclass(frozen=True)
 class TransformSpec:
-    input_schemas: dict[str, types.StructType]
-    output_schema: types.StructType | None
+    input_schemas: dict[str, Schema[Any]]
+    output_schema: Schema[Any] | None
     spark_parameter: str | None
     context_parameters: dict[str, tuple[type, Context]]
 
@@ -85,7 +86,7 @@ def _get_spark_parameter(f: Any) -> str | None:
 def _inspect_transform(f: Any) -> TransformSpec:
     signature = inspect.signature(f)
     type_hints = get_type_hints(f, include_extras=True)
-    input_schemas: dict[str, types.StructType] = {}
+    input_schemas: dict[str, Schema[Any]] = {}
     context_parameters: dict[str, tuple[type, Context]] = {}
 
     for parameter_name in signature.parameters:
@@ -93,11 +94,9 @@ def _inspect_transform(f: Any) -> TransformSpec:
         if parameter_type is None:
             continue
 
-        dataframe_schema_model = _get_annotated_dataframe_schema_model(parameter_type)
-        if dataframe_schema_model is not None:
-            input_schemas[parameter_name] = schemas.get_spark_schema_from_model(
-                dataframe_schema_model
-            )
+        dataframe_schema = _get_annotated_dataframe_schema(parameter_type)
+        if dataframe_schema is not None:
+            input_schemas[parameter_name] = dataframe_schema
             continue
 
         context_marker = _get_context_marker(parameter_type)
@@ -107,9 +106,9 @@ def _inspect_transform(f: Any) -> TransformSpec:
     output_schema = None
     return_type = type_hints.get("return")
     if return_type is not None:
-        dataframe_schema_model = _get_annotated_dataframe_schema_model(return_type)
-        if dataframe_schema_model is not None:
-            output_schema = schemas.get_spark_schema_from_model(dataframe_schema_model)
+        dataframe_schema = _get_annotated_dataframe_schema(return_type)
+        if dataframe_schema is not None:
+            output_schema = dataframe_schema
 
     return TransformSpec(
         input_schemas=input_schemas,
@@ -143,7 +142,7 @@ def _wrap_transform(
 
                 try:
                     bound_arguments.arguments[parameter_name] = (
-                        schemas.coerce_dataframe(value, expected_schema, validate_input)
+                        expected_schema.coerce_dataframe(value, validate_input)
                     )
                 except ValueError as e:
                     raise ValueError(
@@ -161,9 +160,7 @@ def _wrap_transform(
             try:
                 result = cast(
                     R,
-                    schemas.coerce_dataframe(
-                        result, spec.output_schema, validate_output
-                    ),
+                    spec.output_schema.coerce_dataframe(result, validate_output),
                 )
             except ValueError as e:
                 raise ValueError(f"Return schema mismatch for '{fn.__name__}'") from e

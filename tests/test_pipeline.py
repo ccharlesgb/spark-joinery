@@ -189,7 +189,7 @@ def test_pipeline_allows_write_step_without_output_schema(spark: SparkSession):
 
     @collection.transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, User]:
-        return spark.createDataFrame([(1,)], "user_id INT")
+        return spark.createDataFrame([(1,)], "user_id BIGINT")
 
     written: list[DataFrame] = []
 
@@ -331,7 +331,7 @@ def test_executable_pipeline_runs_sources_and_downstream_steps(
 
     @collection.transform
     def read_users(session: SparkSession) -> Annotated[DataFrame, User]:
-        return session.createDataFrame([(1,)], "user_id INT")
+        return session.createDataFrame([(1,)], "user_id BIGINT")
 
     @collection.transform
     def filter_users(
@@ -357,18 +357,18 @@ def test_executable_pipeline_runs_fan_in_and_independent_components(
 
     @collection.transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, User]:
-        return spark.createDataFrame([(1,)], "user_id INT")
+        return spark.createDataFrame([(1,)], "user_id BIGINT")
 
     @collection.transform
     def read_departments(spark: SparkSession) -> Annotated[DataFrame, Department]:
-        return spark.createDataFrame([(2,)], "department_id INT")
+        return spark.createDataFrame([(2,)], "department_id BIGINT")
 
     @collection.transform
     def join(
         users: Annotated[DataFrame, User],
         departments: Annotated[DataFrame, Department],
     ) -> Annotated[DataFrame, UserWithDepartment]:
-        return users.selectExpr("user_id", "2 as department_id")
+        return users.selectExpr("user_id", "cast(2 as BIGINT) as department_id")
 
     pipeline = Pipeline(collections=[collection])
     users = pipeline.add_step(read_users, "users")
@@ -436,7 +436,7 @@ def test_run_resolves_context_parameter_from_pipeline_context(spark: SparkSessio
         spark: SparkSession, path: Annotated[PathConfig, Context()]
     ) -> Annotated[DataFrame, User]:
         assert path == PathConfig("gs://bucket/users")
-        return spark.createDataFrame([(1,)], "user_id INT")
+        return spark.createDataFrame([(1,)], "user_id BIGINT")
 
     pipeline = Pipeline(collections=[collection])
     pipeline.add_step(read_users, "users")

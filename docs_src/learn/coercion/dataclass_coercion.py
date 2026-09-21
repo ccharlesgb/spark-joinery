@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 
 from dataclasses import dataclass
 from pyspark.sql.types import StringType, StructField, StructType
-from spark_joinery import coerce_dataframe_to_model, pretty_print_struct_type
+from spark_joinery import Schema
 
 
 @dataclass
@@ -26,6 +26,6 @@ df = spark.createDataFrame(
     ),
 )
 
-df = coerce_dataframe_to_model(df, Customer)
+df = Schema(Customer).coerce_dataframe(df)
 df.show()
-pretty_print_struct_type(df.schema)
+print(Schema(Customer).pretty_schema)

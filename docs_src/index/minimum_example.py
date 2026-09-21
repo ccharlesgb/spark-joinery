@@ -3,7 +3,7 @@ from datetime import date, datetime
 from pyspark.sql import DataFrame, SparkSession
 from typing import Annotated
 from pyspark.sql.types import DoubleType
-from spark_joinery import Pipeline, schemas
+from spark_joinery import Pipeline, Schema
 
 
 @dataclass
@@ -25,7 +25,7 @@ order_metrics = Pipeline()
 
 @order_metrics.transform
 def read_orders(spark: SparkSession) -> Annotated[DataFrame, Orders]:
-    input_schema = schemas.get_spark_schema_from_model(Orders)
+    input_schema = Schema(Orders).spark_schema
     return spark.createDataFrame(
         [
             (datetime(2026, 1, 1, 0, 0, 0), "customer_1", 10.0),

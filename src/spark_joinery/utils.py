@@ -22,6 +22,10 @@ def pretty_print_struct_type(struct_type: types.StructType) -> None:
     print(_format_struct_type(struct_type, indentation=0))
 
 
+def pretty_struct_type(struct_type: types.StructType) -> str:
+    return _format_struct_type(struct_type, indentation=0)
+
+
 def _format_struct_type(struct_type: types.StructType, indentation: int) -> str:
     indent = _INDENT * indentation
     fields = [

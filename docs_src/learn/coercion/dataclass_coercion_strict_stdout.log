@@ -1,7 +1,7 @@
 Traceback (most recent call last):
   File "/Users/connorcharles/code/spark-joinery/docs_src/learn/coercion/dataclass_coercion_strict.py", line 31, in <module>
-    coerce_dataframe_to_model(df, Customer, mode="strict")
-    ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    Schema(Customer).coerce_dataframe(df, mode="strict")
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
 spark_joinery.schemas.SchemaCoercionError: Cannot coerce dataframe using mode 'strict':
   Additional fields:
     - country (given StringType())

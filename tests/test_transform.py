@@ -4,7 +4,7 @@ from typing import Annotated, Generator
 import pytest
 from pyspark.sql import DataFrame, SparkSession, types
 
-from spark_joinery import schemas
+from spark_joinery import Schema, schemas
 from spark_joinery.dependencies import Context
 from spark_joinery.transform import _inspect_transform, transform
 
@@ -54,6 +54,8 @@ def test_inspect_transform_context_parameter_not_treated_as_dataframe_input():
     spec = _inspect_transform(filter_orders)
 
     assert set(spec.input_schemas) == {"orders"}
+    assert isinstance(spec.input_schemas["orders"], Schema)
+    assert spec.input_schemas["orders"].model is Order
     assert set(spec.context_parameters) == {"path"}
 
 
@@ -76,8 +78,8 @@ def test_transform_accepts_matching_input_and_output_schemas(spark: SparkSession
     class OutputRow:
         field1: int
 
-    input_schema = schemas.get_spark_schema_from_model(InputRow)
-    output_schema = schemas.get_spark_schema_from_model(OutputRow)
+    input_schema = Schema(InputRow).spark_schema
+    output_schema = Schema(OutputRow).spark_schema
     input_df = spark.createDataFrame([(1, "a")], input_schema)
 
     @transform
@@ -98,7 +100,7 @@ def test_transform_raises_for_input_schema_mismatch(spark: SparkSession):
 
     bad_input_df = spark.createDataFrame(
         [(1,)],
-        types.StructType([types.StructField("field1", types.IntegerType(), False)]),
+        types.StructType([types.StructField("field1", types.LongType(), False)]),
     )
 
     @transform
@@ -123,7 +125,7 @@ def test_transform_raises_for_output_schema_mismatch(spark: SparkSession):
     class OutputRow:
         field1: int
 
-    input_df = schemas.get_dataframe(spark, InputRow, [InputRow(1, "a")])
+    input_df = Schema(InputRow).create_dataframe(spark, [InputRow(1, "a")])
 
     @transform(validate_output="strict")
     def my_function(
@@ -147,7 +149,7 @@ def test_transform_parameterized_no_args_still_validates(spark: SparkSession):
 
     bad_input_df = spark.createDataFrame(
         [(1,)],
-        types.StructType([types.StructField("field1", types.IntegerType(), False)]),
+        types.StructType([types.StructField("field1", types.LongType(), False)]),
     )
 
     @transform()
@@ -171,7 +173,7 @@ def test_transform_can_disable_output_validation(spark: SparkSession):
     class OutputRow:
         field1: int
 
-    input_df = schemas.get_dataframe(spark, InputRow, [InputRow(1)])
+    input_df = Schema(InputRow).create_dataframe(spark, [InputRow(1)])
 
     @transform(validate_output=None)
     def my_function(
@@ -194,7 +196,7 @@ def test_transform_default_project_all_drops_extra_output_columns(
     class OutputRow:
         field1: int
 
-    input_df = schemas.get_dataframe(spark, InputRow, [InputRow(1, "a")])
+    input_df = Schema(InputRow).create_dataframe(spark, [InputRow(1, "a")])
 
     @transform
     def my_function(
@@ -213,7 +215,7 @@ def test_transform_strict_null_raises_for_nullability_mismatch(spark: SparkSessi
 
     bad_input_df = spark.createDataFrame(
         [(1,)],
-        types.StructType([types.StructField("field1", types.IntegerType(), False)]),
+        types.StructType([types.StructField("field1", types.LongType(), False)]),
     )
 
     @transform(validate_input="strict_null")
@@ -243,5 +245,5 @@ def test_transform_project_all_cast_mode_casts_input_dataframe(spark: SparkSessi
         return input1
 
     result = my_function(input_df)
-    assert result.schema["field1"].dataType == types.IntegerType()
+    assert result.schema["field1"].dataType == types.LongType()
     assert result.collect() == [types.Row(field1=1)]

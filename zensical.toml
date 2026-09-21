@@ -13,7 +13,11 @@ nav = [
     "learn/schemas.md",
     "learn/coercion.md",
     "learn/transform.md",
-    "learn/pipelines.md",
+    { "Pipelines" = [
+      "learn/pipelines/index.md",
+      "learn/pipelines/context.md",
+    ]
+    }
   ] },
   { "Reference" = [
     "reference/schemas.md",
@@ -38,6 +42,7 @@ features = [
     "navigation.path",
     "navigation.top",
     "navigation.tracking",
+    "navigation.indexes",
     "search.highlight",
    
 ]

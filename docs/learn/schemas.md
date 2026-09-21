@@ -11,7 +11,7 @@ A dataclass schema is defined using the standard Python `dataclass` decorator. E
 --8<-- "docs_src/learn/schemas/dataclass_example.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/schemas/dataclass_example_stdout.log"
@@ -58,7 +58,7 @@ useful for building test fixtures for a transformation. For example, given a cus
 --8<-- "docs_src/learn/schemas/fixture_example.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/schemas/fixture_example_stdout.log"
@@ -66,12 +66,26 @@ Which outputs:
 
 ## Default types and manually setting data types
 
-By default Spark Joinery will use the documented [conversions](https://spark.apache.org/docs/latest/api/python/tutorial/sql/type_conversions.html#all-conversions) to map Python types to Spark types. However,
-this might not be suitable for all use cases for example if you have a `DecimalType` or `VarcharType`. These types cannot be expressed in normal Python so you have to use `Annotated` to override the type in the schema.
+By default Spark Joinery will use the documented [conversions](https://spark.apache.org/docs/latest/api/python/tutorial/sql/type_conversions.html#all-conversions) to map Python
+types to Spark types. However,
+this might not be suitable for all use cases for example if you have a `DecimalType` or `VarcharType`. These types
+cannot be expressed in normal Python so you have to use `Annotated` to override the type in the schema.
 
 There are also some Python types that can map to multiple spark types and this module has made a
 choice. For example `int` -> `LongType` and `float` -> `DoubleType`. For a full list of default mappings
 see [default type mappings.](/reference/type_mapping/)
+
+The below example shows the effect of annotating your fields has on the resulting schema:
+
+``` python
+--8<-- "docs_src/learn/schemas/annotated_example.py"
+```
+
+:fontawesome-solid-code: Outputs:
+
+``` python
+--8<-- "docs_src/learn/schemas/annotated_example_stdout.log"
+```
 
 ## A note on nullability
 

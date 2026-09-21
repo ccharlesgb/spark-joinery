@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -21,8 +22,15 @@ def write_log(script_path: Path, stream_name: str, content: str) -> None:
 
 def run_example(script_path: Path) -> None:
     print(f"Running {script_path}")
-    if script_path.name.startswith("test_"):
-        executable = [sys.executable, "-m", "pytest", "--show-capture=stdout"]
+    is_test = script_path.name.startswith("test_")
+    if is_test:
+        executable = [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-rn",
+            "--show-capture=stdout",
+        ]
     else:
         executable = [sys.executable]
     result = subprocess.run(
@@ -32,8 +40,17 @@ def run_example(script_path: Path) -> None:
         text=True,
     )
 
-    write_log(script_path, "stdout", result.stdout)
-    assert result.returncode == 0, f"{script_path} exited with {result.returncode}"
+    if not is_test:
+        write_log(script_path, "stdout", result.stdout)
+        assert result.returncode == 0, f"{script_path} exited with {result.returncode}"
+    else:
+        std_out_no_duration = re.sub(
+            r" in \d+(?:\.\d+)?s(?= ={2,}\n)", "", result.stdout
+        )
+        write_log(script_path, "stdout", std_out_no_duration)
+        assert result.returncode <= 1, (
+            f"Tests at {script_path} exited with {result.returncode}"
+        )
 
 
 def main() -> None:

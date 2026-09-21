@@ -66,6 +66,8 @@ admonition = {}
 attr_list = {}
 md_in_html = {}
 pymdownx.blocks.caption = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji" 
 
 [project.plugins.mkdocstrings]
 

@@ -48,7 +48,7 @@ A minimum example pipeline is:
 --8<-- "docs_src/index/minimum_example.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` md
 --8<-- "docs_src/index/minimum_example_stdout.log"

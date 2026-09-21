@@ -1,0 +1,8 @@
+StructType([
+    StructField('my_byte', ByteType(), True),
+    StructField('my_short', ShortType(), True),
+    StructField('my_int', IntegerType(), True),
+    StructField('my_long', LongType(), True),
+    StructField('my_float', FloatType(), True),
+    StructField('my_double', DoubleType(), True)
+])

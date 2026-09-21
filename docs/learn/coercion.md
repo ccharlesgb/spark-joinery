@@ -15,7 +15,7 @@ in practice, the input DataFrame has an extra column that is removed when we coe
 --8<-- "docs_src/learn/coercion/dataclass_coercion.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/coercion/dataclass_coercion_stdout.log"
@@ -34,7 +34,7 @@ and types, but its non-nullable columns do not match the model's nullable schema
 --8<-- "docs_src/learn/coercion/dataclass_coercion_strict_null.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/coercion/dataclass_coercion_strict_null_stdout.log"
@@ -50,7 +50,7 @@ has an extra column so will fail the `strict` validation check:
 --8<-- "docs_src/learn/coercion/dataclass_coercion_strict.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/coercion/dataclass_coercion_strict_stdout.log"
@@ -64,7 +64,7 @@ Which outputs:
 --8<-- "docs_src/learn/coercion/dataclass_coercion_project.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/coercion/dataclass_coercion_project_stdout.log"
@@ -79,7 +79,7 @@ the model:
 --8<-- "docs_src/learn/coercion/dataclass_coercion_project_all.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/coercion/dataclass_coercion_project_all_stdout.log"
@@ -95,7 +95,7 @@ you want to easily align your DataFrame with the model's schema. It will also st
 --8<-- "docs_src/learn/coercion/dataclass_coercion_project_all_cast.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/coercion/dataclass_coercion_project_all_cast_stdout.log"

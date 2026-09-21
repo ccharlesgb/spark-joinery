@@ -41,7 +41,5 @@ E       *** expected ***
 E         Row(customer_id='1', name='Alice', is_active=True)
 E       [31m! Row(customer_id='3', name='Charlie', is_active=False)[0m
 
-docs_src/learn/transform/test_example.py:46: PySparkAssertionError
-=========================== short test summary info ============================
-FAILED docs_src/learn/transform/test_example.py::test_filter_active_customers
-============================== 1 failed in 5.96s ===============================
+docs_src/learn/transform/test_example.py:45: PySparkAssertionError
+============================== 1 failed ===============================

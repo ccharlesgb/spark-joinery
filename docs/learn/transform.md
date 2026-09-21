@@ -7,7 +7,7 @@ annotate input and output schemas making it much clearer what the transformation
 --8<-- "docs_src/learn/transform/decorator_example.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/transform/decorator_example_stdout.log"
@@ -48,7 +48,7 @@ You can use transformations like you would normally in a Spark job. For example:
 --8<-- "docs_src/learn/transform/usage_example_happy.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/transform/usage_example_happy_stdout.log"
@@ -61,7 +61,7 @@ the lazy evaluation model in Spark this will happen even before any work is done
 --8<-- "docs_src/learn/transform/usage_example_bad.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/transform/usage_example_bad_stdout.log"
@@ -82,7 +82,7 @@ use them as a convinient way to produce input fixtures for your tests:
 --8<-- "docs_src/learn/transform/test_example.py"
 ```
 
-Which outputs:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/transform/test_example_stdout.log"

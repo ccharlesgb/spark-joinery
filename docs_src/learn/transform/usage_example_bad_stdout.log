@@ -1,11 +1,7 @@
 Traceback (most recent call last):
   File "/Users/connorcharles/code/spark-joinery/docs_src/learn/transform/usage_example_bad.py", line 48, in <module>
-    customers.transform(filter_active_customers).transform(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        get_customer_count
-        ^^^^^^^^^^^^^^^^^^
-    )
-    ^
+    customers.transform(filter_active_customers).transform(get_customer_count)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
 spark_joinery.schemas.SchemaCoercionError: Cannot coerce dataframe using mode 'strict':
   Missing fields:
     - customer_count (expected LongType())

@@ -24,10 +24,11 @@ format:
 check: lint types format test
 
 docs-serve:
-    zensical serve
+    uv run zensical build --clean
+    uv run zensical serve
 
 docs-build:
-    zensical build
+    uv run zensical build
 
 docs-examples:
     uv run python scripts/run_docs_examples.py

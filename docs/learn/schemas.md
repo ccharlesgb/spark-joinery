@@ -24,7 +24,7 @@ would in native python:
 --8<-- "docs_src/learn/schemas/dataclass_example_nested.py"
 ```
 
-Which gives the schema:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 -8<-- "docs_src/learn/schemas/dataclass_example_nested_stdout.log"
@@ -38,7 +38,7 @@ Pydantic models work in the same way:
 --8<-- "docs_src/learn/schemas/pydantic_example.py"
 ```
 
-Which similarly gives:
+:fontawesome-solid-code: Outputs:
 
 ``` python
 --8<-- "docs_src/learn/schemas/pydantic_example_stdout.log"

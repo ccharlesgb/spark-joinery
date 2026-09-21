@@ -39,6 +39,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "ipykernel>=7.3.0",
+    "mkdocstrings-python>=2.0.8",
     "pydantic>=2.0.0",
     "pyrefly>=1.2.0",
     "pytest>=9.1.0",

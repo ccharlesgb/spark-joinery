@@ -15,6 +15,13 @@ nav = [
     "learn/transform.md",
     "learn/pipelines.md",
   ] },
+  { "Reference" = [
+    "reference/Pipeline.md",
+    "reference/Collection.md",
+    "reference/schemas.md",
+    "reference/transform.md",
+    "reference/type_mapping.md"
+  ]}
 ]
 
 [project.theme]
@@ -59,6 +66,23 @@ admonition = {}
 attr_list = {}
 md_in_html = {}
 pymdownx.blocks.caption = {}
+
+[project.plugins.mkdocstrings]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+show_root_heading = true
+show_if_no_docstring = true
+inherited_members = true
+members_order = "source"
+separate_signature = true
+unwrap_annotated = true
+filters = ["!^_"]
+merge_init_into_class = true
+docstring_section_style = "spacy"
+signature_crossrefs = true
+show_symbol_type_heading = true
+show_symbol_type_toc = true
+
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"

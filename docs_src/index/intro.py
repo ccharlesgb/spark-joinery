@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 from pyspark.sql import DataFrame
 from typing import Annotated
-from spark_joinery import transform
+from spark_joinery import transform, Strict
 
 
 @dataclass
@@ -25,5 +25,5 @@ class CustomerMetrics:
 
 @transform
 def get_metrics(
-    fact_table: Annotated[DataFrame, Customer],
-) -> Annotated[DataFrame, CustomerMetrics]: ...
+    fact_table: Annotated[DataFrame, Strict(Customer)],
+) -> Annotated[DataFrame, Strict(CustomerMetrics)]: ...

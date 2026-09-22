@@ -15,7 +15,7 @@ annotate input and output schemas making it much clearer what the transformation
 
 ## Defining a contract
 
-You can define an input contract by annotating any input parameters with a valid [coercion mode](/reference/transform/#contracts) and
+You can define an input contract by annotating any input parameters with a valid [coercion mode](../reference/transform.md#contracts) and
 schema. This example shows a transform that will project any input dataframe but it will be strict
 on it's output schema. This would be a transformation following the [robustness principle](https://en.wikipedia.org/wiki/Robustness_principle):
 

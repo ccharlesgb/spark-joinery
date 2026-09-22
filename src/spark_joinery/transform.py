@@ -31,12 +31,12 @@ class Contract:
     schema: Schema[Any]
 
 
-def ProjectAllCast(schema: type) -> Contract:
-    return Contract(coercion_mode="project_all_cast", schema=Schema(schema))
+def ProjectCast(schema: type) -> Contract:
+    return Contract(coercion_mode="project_cast", schema=Schema(schema))
 
 
-def ProjectAll(schema: type) -> Contract:
-    return Contract(coercion_mode="project_all", schema=Schema(schema))
+def ProjectTopLevel(schema: type) -> Contract:
+    return Contract(coercion_mode="project_top_level", schema=Schema(schema))
 
 
 def Project(schema: type) -> Contract:

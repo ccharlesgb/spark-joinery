@@ -7,7 +7,7 @@ from spark_joinery import Schema
 
 @dataclass
 class Customer:
-    customer_id: int
+    customer_id: str
     name: str
 
 
@@ -23,6 +23,6 @@ df = spark.createDataFrame(
     ),
 )
 
-df = Schema(Customer).coerce_dataframe(df, mode="project_all_cast")
+df = Schema(Customer).coerce_dataframe(df, mode="project_top_level")
 df.show()
 print(Schema(Customer).pretty_schema)

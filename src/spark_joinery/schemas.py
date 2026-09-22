@@ -11,7 +11,7 @@ from . import type_inspection
 T = TypeVar("T")
 
 CoercionMode = Literal[
-    "project_all_cast", "project_all", "project", "strict", "strict_null"
+    "project_cast", "project", "project_top_level", "strict", "strict_null"
 ]
 
 DifferenceKind = Literal["additional", "missing", "type_mismatch", "nullable_mismatch"]
@@ -396,9 +396,7 @@ def _format_schema_coercion_error(
         ("additional", "Additional fields"),
         (
             "type_mismatch",
-            "Unsupported type casts"
-            if mode == "project_all_cast"
-            else "Type mismatches",
+            "Unsupported type casts" if mode == "project_cast" else "Type mismatches",
         ),
         ("nullable_mismatch", "Nullable mismatches"),
     )
@@ -556,7 +554,7 @@ def _project_fields(
     dataframe: DataFrame,
     schema: types.StructType,
     *,
-    mode: Literal["project", "project_all", "project_all_cast"],
+    mode: CoercionMode,
     cast: bool,
     recurse: bool,
 ) -> DataFrame:
@@ -605,24 +603,24 @@ class StrictNull(SchemaCoercionMode):
         )
 
 
-class Project(SchemaCoercionMode):
+class ProjectTopLevel(SchemaCoercionMode):
     def __call__(self, dataframe: DataFrame, schema: types.StructType) -> DataFrame:
         return _project_fields(
             dataframe, schema, mode="project", cast=False, recurse=False
         )
 
 
-class ProjectAll(SchemaCoercionMode):
+class Project(SchemaCoercionMode):
     def __call__(self, dataframe: DataFrame, schema: types.StructType) -> DataFrame:
         return _project_fields(
-            dataframe, schema, mode="project_all", cast=False, recurse=True
+            dataframe, schema, mode="project", cast=False, recurse=True
         )
 
 
-class ProjectAllCast(SchemaCoercionMode):
+class ProjectCast(SchemaCoercionMode):
     def __call__(self, dataframe: DataFrame, schema: types.StructType) -> DataFrame:
         return _project_fields(
-            dataframe, schema, mode="project_all_cast", cast=True, recurse=True
+            dataframe, schema, mode="project_cast", cast=True, recurse=True
         )
 
 
@@ -632,8 +630,8 @@ _MODE_HANDLERS: dict[
     "strict": Strict(),
     "strict_null": StrictNull(),
     "project": Project(),
-    "project_all": ProjectAll(),
-    "project_all_cast": ProjectAllCast(),
+    "project_top_level": ProjectTopLevel(),
+    "project_cast": ProjectCast(),
 }
 
 
@@ -666,7 +664,7 @@ class Schema[T]:
         return spark.createDataFrame(serialized_rows, self.spark_schema)
 
     def coerce_dataframe(
-        self, dataframe: DataFrame, mode: CoercionMode = "project_all"
+        self, dataframe: DataFrame, mode: CoercionMode = "project"
     ) -> DataFrame:
         try:
             handler = _MODE_HANDLERS[mode]

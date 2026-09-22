@@ -1,11 +1,17 @@
-+-----------+-----+
-|customer_id| name|
-+-----------+-----+
-|          1|Alice|
-|          2|  Bob|
-+-----------+-----+
++-----------+--------+
+|customer_id| address|
++-----------+--------+
+|          1|{London}|
+|          2| {Paris}|
++-----------+--------+
 
 StructType([
-    StructField('customer_id', StringType(), True),
-    StructField('name', StringType(), True)
+    StructField('customer_id', LongType(), True),
+    StructField(
+        'address',
+        StructType([
+            StructField('city', StringType(), True)
+        ]),
+        True
+    )
 ])

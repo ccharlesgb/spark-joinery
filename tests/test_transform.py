@@ -7,10 +7,10 @@ from pyspark.sql import DataFrame, SparkSession, types
 from spark_joinery import (
     Schema,
     schemas,
-    ProjectAllCast,
+    ProjectCast,
     Strict,
     StrictNull,
-    ProjectAll,
+    Project,
 )
 from spark_joinery.dependencies import Context
 from spark_joinery.transform import Contract, _inspect_transform, transform
@@ -53,7 +53,7 @@ def test_inspect_transform_collects_context_parameters():
 
 def test_inspect_transform_context_parameter_not_treated_as_dataframe_input():
     def filter_orders(
-        orders: Annotated[DataFrame, ProjectAll(Order)],
+        orders: Annotated[DataFrame, Project(Order)],
         path: Annotated[PathConfig, Context()],
     ) -> Annotated[DataFrame, Order]:
         raise AssertionError
@@ -111,7 +111,7 @@ def test_transform_raises_for_input_schema_mismatch(spark: SparkSession):
     )
 
     @transform
-    def my_function(input1: Annotated[DataFrame, ProjectAll(InputRow)]):
+    def my_function(input1: Annotated[DataFrame, Project(InputRow)]):
         return input1
 
     with pytest.raises(schemas.SchemaCoercionError) as error:
@@ -168,7 +168,7 @@ def test_transform_can_disable_output_validation(spark: SparkSession):
     assert my_function(input_df) == "not a dataframe"
 
 
-def test_transform_project_all_drops_extra_output_columns(
+def test_transform_project_drops_extra_output_columns(
     spark: SparkSession,
 ):
     @dataclass
@@ -184,8 +184,8 @@ def test_transform_project_all_drops_extra_output_columns(
 
     @transform
     def my_function(
-        input1: Annotated[DataFrame, ProjectAll(InputRow)],
-    ) -> Annotated[DataFrame, ProjectAll(OutputRow)]:
+        input1: Annotated[DataFrame, Project(InputRow)],
+    ) -> Annotated[DataFrame, Project(OutputRow)]:
         return input1
 
     result = my_function(input_df)
@@ -214,7 +214,7 @@ def test_transform_strict_null_raises_for_nullability_mismatch(spark: SparkSessi
     ] == [("nullable_mismatch", "field1")]
 
 
-def test_transform_project_all_cast_mode_casts_input_dataframe(spark: SparkSession):
+def test_transform_project_cast_mode_casts_input_dataframe(spark: SparkSession):
     @dataclass
     class InputRow:
         field1: int
@@ -225,7 +225,7 @@ def test_transform_project_all_cast_mode_casts_input_dataframe(spark: SparkSessi
     )
 
     @transform
-    def my_function(input1: Annotated[DataFrame, ProjectAllCast(InputRow)]):
+    def my_function(input1: Annotated[DataFrame, ProjectCast(InputRow)]):
         return input1
 
     result = my_function(input_df)

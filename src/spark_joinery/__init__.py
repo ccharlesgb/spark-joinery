@@ -8,9 +8,9 @@ from .pipeline import (
 )
 from .transform import (
     transform,
-    ProjectAll,
     Strict,
-    ProjectAllCast,
+    ProjectCast,
+    ProjectTopLevel,
     Project,
     StrictNull,
 )
@@ -26,9 +26,9 @@ __all__ = [
     "Schema",
     "Step",
     "transform",
-    "ProjectAll",
+    "ProjectTopLevel",
     "Strict",
-    "ProjectAllCast",
+    "ProjectCast",
     "Project",
     "StrictNull",
 ]

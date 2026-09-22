@@ -22,12 +22,12 @@ on it's output schema. This would be a transformation following the [robustness 
 ``` python
 @transform
 def filter_active_customers(
-    customers: Annotated[DataFrame, ProjectAll(Customer)],
+    customers: Annotated[DataFrame, Project(Customer)],
 ) -> Annotated[DataFrame, Strict(Customer)]:
     return customers.filter(customers.is_active)
 ```
 
-For read steps of wide/nested tables you might want to use `ProjectAll` as the coercion mode
+For read steps of wide/nested tables you might want to use `Project` as the coercion mode
 instead of writing out the full schema explicitly. This can be especially useful if you only
 want to select a few fields of highly nested data:
 
@@ -36,7 +36,7 @@ want to select a few fields of highly nested data:
 def read_nested_event_data(
     spark: SparkSession,
     path: str
-) -> Annotated[DataFrame, ProjectAll(Event)]:
+) -> Annotated[DataFrame, Project(Event)]:
     return spark.read.parquet(path)
 ```
 

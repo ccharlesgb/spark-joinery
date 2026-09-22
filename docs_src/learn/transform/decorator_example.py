@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Annotated
 
 from pyspark.sql import DataFrame, SparkSession
-from spark_joinery import transform, ProjectAll, Strict
+from spark_joinery import transform, Project, Strict
 
 
 @dataclass
@@ -14,7 +14,7 @@ class Customer:
 
 @transform
 def filter_active_customers(
-    customers: Annotated[DataFrame, ProjectAll(Customer)],
+    customers: Annotated[DataFrame, Project(Customer)],
 ) -> Annotated[DataFrame, Strict(Customer)]:
     return customers.filter(customers.is_active)
 

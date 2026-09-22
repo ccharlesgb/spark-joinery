@@ -10,8 +10,8 @@ The transform decorator:
 
 ::: spark_joinery.transform.StrictNull
 
-::: spark_joinery.transform.ProjectAll
-
 ::: spark_joinery.transform.Project
 
-::: spark_joinery.transform.ProjectAllCast
+::: spark_joinery.transform.ProjectTopLevel
+
+::: spark_joinery.transform.ProjectCast

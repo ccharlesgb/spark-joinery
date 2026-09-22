@@ -8,7 +8,7 @@ matches the model's schema or raise a validation error if coercion fails based o
 
 By default Spark Joinery will project the input DataFrame
 onto the desired schema, including nested struct fields. It will **not** perform any type casting, and it will
-**not** add missing columns, this default mode is called `project_all`. The below example shows how this works
+**not** add missing columns, this default mode is called `project`. The below example shows how this works
 in practice, the input DataFrame has an extra column that is removed when we coerce it to the `Customer` model:
 
 ``` python
@@ -56,9 +56,24 @@ has an extra column so will fail the `strict` validation check:
 --8<-- "docs_src/learn/coercion/dataclass_coercion_strict_stdout.log"
 ```
 
-### Project
+### Project Top Level
 
-`project` projects only the model's top-level columns. If there is a difference in struct fields it will fail:
+`project_top_level` projects only the model's top-level columns. If there is a difference in struct fields it will fail:
+
+``` python
+--8<-- "docs_src/learn/coercion/dataclass_coercion_project_top_level.py"
+```
+
+:fontawesome-solid-code: Outputs:
+
+``` python
+--8<-- "docs_src/learn/coercion/dataclass_coercion_project_top_level_stdout.log"
+```
+
+### Project (Default)
+
+The mode `project` projects nested struct fields, removing all fields that are not in
+the model:
 
 ``` python
 --8<-- "docs_src/learn/coercion/dataclass_coercion_project.py"
@@ -70,35 +85,20 @@ has an extra column so will fail the `strict` validation check:
 --8<-- "docs_src/learn/coercion/dataclass_coercion_project_stdout.log"
 ```
 
-### Project All (Default)
+### Project Cast
 
-As explained before `project_all` also projects nested struct fields, removing all fields that are not in
-the model:
-
-``` python
---8<-- "docs_src/learn/coercion/dataclass_coercion_project_all.py"
-```
-
-:fontawesome-solid-code: Outputs:
-
-``` python
---8<-- "docs_src/learn/coercion/dataclass_coercion_project_all_stdout.log"
-```
-
-### Project All Cast
-
-The most relaxed mode, `project_all_cast`, recursively projects fields and casts values to the model's field types. This
+The most relaxed mode, `project_cast`, recursively projects fields and casts values to the model's field types. This
 will still fail if the types cannot be safely cast by spark but this can be useful if reading external data and
 you want to easily align your DataFrame with the model's schema. It will also still fail if there are missing columns:
 
 ``` python
---8<-- "docs_src/learn/coercion/dataclass_coercion_project_all_cast.py"
+--8<-- "docs_src/learn/coercion/dataclass_coercion_project_cast.py"
 ```
 
 :fontawesome-solid-code: Outputs:
 
 ``` python
---8<-- "docs_src/learn/coercion/dataclass_coercion_project_all_cast_stdout.log"
+--8<-- "docs_src/learn/coercion/dataclass_coercion_project_cast_stdout.log"
 ```
 
 Type casting in Spark Joinery follows the Spark casting rules described in

@@ -6,11 +6,11 @@ from pyspark.sql import SparkSession, types
 from pyspark.testing import assertDataFrameEqual
 from pydantic import BaseModel
 from spark_joinery.schemas import (
+    ProjectCast,
+    ProjectTopLevel,
     Strict,
     StrictNull,
     Project,
-    ProjectAll,
-    ProjectAllCast,
 )
 from spark_joinery import Schema, schemas
 
@@ -578,12 +578,12 @@ def test_schema_coercion_error_exposes_all_violations():
         ),
     )
 
-    error = schemas.SchemaCoercionError("project_all_cast", violations)
+    error = schemas.SchemaCoercionError("project_cast", violations)
 
-    assert error.mode == "project_all_cast"
+    assert error.mode == "project_cast"
     assert error.violations == violations
     assert str(error) == (
-        "Cannot coerce dataframe using mode 'project_all_cast':\n"
+        "Cannot coerce dataframe using mode 'project_cast':\n"
         "  Missing fields:\n"
         "    - customer.postcode (expected StringType())\n"
         "  Unsupported type casts:\n"
@@ -659,10 +659,12 @@ def test_coerce_dataframe_strict_raises_for_type_mismatch(spark: SparkSession):
         Strict()(dataframe, schema)
 
 
-# --- _coerce_dataframe: project ---
+# --- _coerce_dataframe: project_top_level ---
 
 
-def test_coerce_dataframe_project_selects_subset_of_columns(spark: SparkSession):
+def test_coerce_dataframe_project_top_level_selects_subset_of_columns(
+    spark: SparkSession,
+):
     dataframe = spark.createDataFrame(
         [(1, "a", 1.0)],
         types.StructType(
@@ -680,13 +682,15 @@ def test_coerce_dataframe_project_selects_subset_of_columns(spark: SparkSession)
         ]
     )
 
-    result = Project()(dataframe, schema)
+    result = ProjectTopLevel()(dataframe, schema)
 
     assert result.columns == ["a", "b"]
     assert result.collect() == [types.Row(a=1, b="a")]
 
 
-def test_coerce_dataframe_project_raises_for_missing_column(spark: SparkSession):
+def test_coerce_dataframe_project_top_level_raises_for_missing_column(
+    spark: SparkSession,
+):
     dataframe = spark.createDataFrame(
         [(1,)], types.StructType([types.StructField("a", types.IntegerType(), True)])
     )
@@ -698,7 +702,7 @@ def test_coerce_dataframe_project_raises_for_missing_column(spark: SparkSession)
     )
 
     with pytest.raises(schemas.SchemaCoercionError):
-        Project()(dataframe, schema)
+        ProjectTopLevel()(dataframe, schema)
 
 
 def test_coerce_dataframe_project_raises_for_type_mismatch(spark: SparkSession):
@@ -736,10 +740,10 @@ def test_coerce_dataframe_project_reports_every_missing_and_type_mismatch(
     ]
 
 
-# --- _coerce_dataframe: project_all ---
+# --- _coerce_dataframe: project ---
 
 
-def test_coerce_dataframe_project_all_prunes_nested_struct_fields(spark: SparkSession):
+def test_coerce_dataframe_project_prunes_nested_struct_fields(spark: SparkSession):
     dataframe = spark.createDataFrame(
         [((1, 2),)],
         types.StructType(
@@ -767,12 +771,12 @@ def test_coerce_dataframe_project_all_prunes_nested_struct_fields(spark: SparkSe
         ]
     )
 
-    result = ProjectAll()(dataframe, schema)
+    result = Project()(dataframe, schema)
 
     assert result.collect() == [types.Row(a=types.Row(a1=1))]
 
 
-def test_coerce_dataframe_project_all_prunes_array_of_struct_fields(
+def test_coerce_dataframe_project_prunes_array_of_struct_fields(
     spark: SparkSession,
 ):
     dataframe = spark.createDataFrame(
@@ -808,12 +812,12 @@ def test_coerce_dataframe_project_all_prunes_array_of_struct_fields(
         ]
     )
 
-    result = ProjectAll()(dataframe, schema)
+    result = Project()(dataframe, schema)
 
     assert result.collect() == [types.Row(items=[types.Row(a1=1), types.Row(a1=3)])]
 
 
-def test_coerce_dataframe_project_all_raises_for_missing_nested_field(
+def test_coerce_dataframe_project_raises_for_missing_nested_field(
     spark: SparkSession,
 ):
     dataframe = spark.createDataFrame(
@@ -846,10 +850,10 @@ def test_coerce_dataframe_project_all_raises_for_missing_nested_field(
     )
 
     with pytest.raises(schemas.SchemaCoercionError):
-        ProjectAll()(dataframe, schema)
+        Project()(dataframe, schema)
 
 
-def test_coerce_dataframe_project_all_raises_for_nested_type_mismatch(
+def test_coerce_dataframe_project_raises_for_nested_type_mismatch(
     spark: SparkSession,
 ):
     dataframe = spark.createDataFrame(
@@ -877,13 +881,13 @@ def test_coerce_dataframe_project_all_raises_for_nested_type_mismatch(
     )
 
     with pytest.raises(schemas.SchemaCoercionError):
-        ProjectAll()(dataframe, schema)
+        Project()(dataframe, schema)
 
 
-# --- _coerce_dataframe: project_all_cast ---
+# --- _coerce_dataframe: project_cast ---
 
 
-def test_coerce_dataframe_project_all_cast_casts_mismatched_leaf_types(
+def test_coerce_dataframe_project_cast_casts_mismatched_leaf_types(
     spark: SparkSession,
 ):
     dataframe = spark.createDataFrame(
@@ -891,12 +895,12 @@ def test_coerce_dataframe_project_all_cast_casts_mismatched_leaf_types(
     )
     schema = types.StructType([types.StructField("a", types.IntegerType(), True)])
 
-    result = ProjectAllCast()(dataframe, schema)
+    result = ProjectCast()(dataframe, schema)
 
     assert result.collect() == [types.Row(a=1)]
 
 
-def test_coerce_dataframe_project_all_cast_casts_nested_struct_fields(
+def test_coerce_dataframe_project_cast_casts_nested_struct_fields(
     spark: SparkSession,
 ):
     dataframe = spark.createDataFrame(
@@ -923,12 +927,12 @@ def test_coerce_dataframe_project_all_cast_casts_nested_struct_fields(
         ]
     )
 
-    result = ProjectAllCast()(dataframe, schema)
+    result = ProjectCast()(dataframe, schema)
 
     assert result.collect() == [types.Row(a=types.Row(a1=1))]
 
 
-def test_coerce_dataframe_project_all_cast_casts_array_of_struct_fields(
+def test_coerce_dataframe_project_cast_casts_array_of_struct_fields(
     spark: SparkSession,
 ):
     dataframe = spark.createDataFrame(
@@ -961,12 +965,12 @@ def test_coerce_dataframe_project_all_cast_casts_array_of_struct_fields(
         ]
     )
 
-    result = ProjectAllCast()(dataframe, schema)
+    result = ProjectCast()(dataframe, schema)
 
     assert result.collect() == [types.Row(items=[types.Row(a1=1), types.Row(a1=2)])]
 
 
-def test_coerce_dataframe_project_all_cast_raises_for_missing_field(
+def test_coerce_dataframe_project_cast_raises_for_missing_field(
     spark: SparkSession,
 ):
     dataframe = spark.createDataFrame(
@@ -980,10 +984,10 @@ def test_coerce_dataframe_project_all_cast_raises_for_missing_field(
     )
 
     with pytest.raises(schemas.SchemaCoercionError):
-        ProjectAllCast()(dataframe, schema)
+        ProjectCast()(dataframe, schema)
 
 
-def test_coerce_dataframe_project_all_cast_reports_every_unsupported_cast(
+def test_coerce_dataframe_project_cast_reports_every_unsupported_cast(
     spark: SparkSession,
 ):
     dataframe = spark.createDataFrame(
@@ -1004,7 +1008,7 @@ def test_coerce_dataframe_project_all_cast_reports_every_unsupported_cast(
     )
 
     with pytest.raises(schemas.SchemaCoercionError) as error:
-        ProjectAllCast()(dataframe, schema)
+        ProjectCast()(dataframe, schema)
 
     assert [
         (violation.kind, violation.path) for violation in error.value.violations

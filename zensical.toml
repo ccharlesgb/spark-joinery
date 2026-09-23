@@ -22,7 +22,6 @@ nav = [
   { "Reference" = [
     "reference/schemas.md",
     "reference/transform.md",
-    "reference/Collection.md",
     "reference/Pipeline.md",
     "reference/type_mapping.md"
   ]}

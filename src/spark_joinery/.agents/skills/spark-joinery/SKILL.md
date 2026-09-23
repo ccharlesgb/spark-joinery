@@ -1,13 +1,12 @@
 ---
-name: pyspark-joinery
-description: PySpark Joinery best practices and conventions. Use when working with PySpark Joinery. Keeps PySpark Joinery code clean and up to date with the latest features and patterns, updated with new versions. Write new code or refactor and update old code.
+name: spark-joinery
+description: Spark Joinery best practices and conventions. Use when working with Spark Joinery. Keeps Spark Joinery code clean and up to date with the latest features and patterns, updated with new versions. Write new code or refactor and update old code.
 ---
 
-# PySpark Joinery
+# Spark Joinery
 
 Spark Joinery is a schema-first framework for constructing testable PySpark transformations and validated pipeline DAGs. Use this skill when adding or changing schemas, decorated transformations, or `Pipeline` definitions.
 
-Import the package as `spark_joinery`, not `pyspark_joinery`.
 
 ```python
 from spark_joinery import (

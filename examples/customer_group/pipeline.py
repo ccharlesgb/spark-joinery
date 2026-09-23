@@ -5,14 +5,14 @@ from .collection import (
     denormalise_group_id,
     write_output,
 )
-from spark_joinery.pipeline import Pipeline, ExecutablePipeline
+from spark_joinery.pipeline import Pipeline
 
 
 DATA_DIR = Path(__file__).parent / "data"
 OUTPUT_DIR = Path(__file__).parent / "__output"
 
 
-def build_pipeline() -> ExecutablePipeline:
+def build_pipeline() -> Pipeline:
     pipeline = Pipeline()
 
     read_customers_step = pipeline.add_step(read_customers, "read_customers")
@@ -24,4 +24,4 @@ def build_pipeline() -> ExecutablePipeline:
     pipeline.connect(read_customers_step, denormalise_group_id_step)
     pipeline.connect(denormalise_group_id_step, write_output_step)
 
-    return pipeline.validate()
+    return pipeline

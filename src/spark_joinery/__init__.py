@@ -1,6 +1,5 @@
 from .dependencies import Context, PipelineContext
 from .pipeline import (
-    ExecutablePipeline,
     Pipeline,
     PipelineExecutionError,
     Step,
@@ -17,7 +16,6 @@ from .schemas import Schema
 
 __all__ = [
     "Context",
-    "ExecutablePipeline",
     "Pipeline",
     "PipelineExecutionError",
     "PipelineContext",

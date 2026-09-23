@@ -18,6 +18,8 @@ from typing import (
 
 from pyspark.sql import DataFrame, SparkSession
 
+from spark_joinery.utils import get_callable_name
+
 from .dependencies import Context
 from .schemas import CoercionMode, Schema
 
@@ -30,6 +32,9 @@ R = TypeVar("R")
 class Contract:
     coercion_mode: Literal[CoercionMode]
     schema: Schema[Any]
+
+    def is_compatible_with(self, other: "Contract") -> bool:
+        return self.schema == other.schema
 
 
 def ProjectCast(schema: type) -> Contract:
@@ -209,6 +214,10 @@ class Transform(Generic[P, R]):
 
     def get_signature(self) -> inspect.Signature:
         return inspect.signature(self._fn)
+
+    @property
+    def default_name(self) -> str | None:
+        return get_callable_name(self._fn)
 
 
 @overload

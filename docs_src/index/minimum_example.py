@@ -61,5 +61,4 @@ read_orders_step >> get_metrics_step >> print_metrics_step
 
 spark = SparkSession.builder.appName("OrderMetricsApp").getOrCreate()
 
-validated = order_metrics.validate()
-validated.run(spark)
+order_metrics.run(spark)

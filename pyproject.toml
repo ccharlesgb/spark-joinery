@@ -8,6 +8,7 @@ authors = [
 requires-python = ">=3.13"
 dependencies = [
     "pyspark>=4.2.0",
+    "rustworkx[mpl]>=0.18.1",
 ]
 
 [tool.pyrefly]

@@ -678,3 +678,8 @@ class Schema[T]:
     @property
     def pretty_schema(self) -> str:
         return pretty_struct_type(self.spark_schema)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Schema):
+            return False
+        return self.model == other.model

@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, ParamSpec, Sequence, TypeVar
-
+from matplotlib import pyplot as plt
 from pyspark.sql import DataFrame, SparkSession
+import rustworkx as rx
+from rustworkx.visualization import mpl_draw
 
-from spark_joinery.transform import Transform
-from spark_joinery.utils import get_callable_name
+from spark_joinery.dependencies import PipelineContext
+from spark_joinery.transform import Contract, Transform
+from spark_joinery.visualisation import topological_layout
 
-from .dependencies import PipelineContext
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -18,13 +20,24 @@ class PipelineExecutionError(RuntimeError):
     pass
 
 
-@dataclass(eq=False)
+class PipelineCycleError(Exception):
+    pass
+
+
+class PipelineConnectionError(Exception):
+    pass
+
+
+@dataclass(eq=False, frozen=True)
 class Step:
+    """
+    Represents a single step in a pipeline, encapsulating a transform and its connections.
+    It's purpose is to allow you to use a transformation more than once within the same pipeline.
+    """
+
     name: str
     transform: Transform
     _pipeline: Pipeline
-    _upstream_steps: list[Step]
-    _explicit_bindings: dict[Step, str]
 
     def __rshift__(self, other: Step) -> Step:
         if not isinstance(other, Step):
@@ -33,15 +46,152 @@ class Step:
         return other
 
 
-@dataclass(frozen=True)
-class _ExecutionStep:
-    step: Step
-    dataframe_bindings: tuple[tuple[str, Step], ...]
+class Pipeline:
+    def __init__(self):
+        self._dag = rx.PyDAG(check_cycle=True)
+        self._node_indices: dict[Step, int] = {}
 
+    def add_step(self, transform: Transform, name: str | None = None) -> Step:
+        """Adds a new step to the pipeline.
 
-class ExecutablePipeline:
-    def __init__(self, execution_steps: Sequence[_ExecutionStep]):
-        self._execution_steps = tuple(execution_steps)
+        Args:
+            transform: The transform to add as a step in the pipeline.
+            name: The name of the step. If None, the name will be inferred from the transform.
+
+        Returns:
+            The newly created Step instance.
+
+        Raises:
+            ValueError: If the step name is already registered or cannot be inferred.
+            TypeError: If the transform has unsupported parameters or lacks required inputs.
+        """
+        if name is None:
+            name = transform.default_name
+        if name is None:
+            raise ValueError(
+                f"Step name of '{transform}' could not be inferred. Pass name=<desired_name>"
+            )
+        if name in [node.name for node in self._dag.nodes()]:
+            raise ValueError(f"step name '{name}' is already registered")
+
+        spec = transform.__transform_spec__
+        input_schemas = spec.input_contracts
+
+        spark_parameter = spec.spark_parameter
+        parameter_names = set(transform.get_signature().parameters)
+        supported_parameters = (
+            set(input_schemas)
+            | ({spark_parameter} if spark_parameter is not None else set())
+            | set(spec.context_parameters)
+        )
+        unsupported_parameters = parameter_names - supported_parameters
+        if unsupported_parameters:
+            unsupported = sorted(unsupported_parameters)[0]
+            raise TypeError(
+                "pipeline steps only support SparkSession, annotated DataFrame, "
+                f"and Context-annotated parameters; unsupported parameter '{unsupported}'"
+            )
+
+        if not input_schemas and spark_parameter is None:
+            raise TypeError("source step must declare a SparkSession")
+
+        step = Step(
+            name=name,
+            transform=transform,
+            _pipeline=self,
+        )
+        node_index = self._dag.add_node(step)
+        self._node_indices[step] = node_index
+        return step
+
+    def connect(
+        self, upstream: Step, downstream: Step, *, param: str | None = None
+    ) -> None:
+        downstream_spec = downstream.transform.__transform_spec__
+        upstream_spec = upstream.transform.__transform_spec__
+
+        upstream_contract = upstream_spec.output_contract
+        if upstream_contract is None:
+            raise PipelineConnectionError(
+                f"upstream step '{upstream.name}' does not produce an output"
+            )
+
+        compatible_specs: dict[str, Contract] = {}
+        for param_name, input_contract in downstream_spec.input_contracts.items():
+            if input_contract.is_compatible_with(upstream_contract):
+                compatible_specs[param_name] = input_contract
+
+        if len(compatible_specs) > 1:
+            if param is None:
+                raise PipelineConnectionError(
+                    f"Multiple compatible input contracts found for upstream step '{upstream.name}' "
+                    f"and downstream step '{downstream.name}', but no parameter was specified"
+                )
+            else:
+                downstream_parameter_name = param
+        elif len(compatible_specs) == 1:
+            if param is not None and param != list(compatible_specs.keys())[0]:
+                raise PipelineConnectionError(
+                    f"Specified parameter '{param}' does not match the compatible input contract '{list(compatible_specs.keys())[0]}'"
+                )
+            downstream_parameter_name = list(compatible_specs.keys())[0]
+        else:
+            raise PipelineConnectionError(
+                f"No compatible input contract found for upstream step '{upstream.name}'"
+            )
+
+        downstream_index = self._node_indices[downstream]
+        for connected_upstream_index, _, connected_parameter_name in self._dag.in_edges(
+            downstream_index
+        ):
+            if connected_parameter_name != downstream_parameter_name:
+                continue
+            if connected_upstream_index == self._node_indices[upstream]:
+                return
+            connected_upstream = self._dag[connected_upstream_index]
+            raise PipelineConnectionError(
+                f"Step '{connected_upstream.name}' is already connected to "
+                f"'{downstream.name}'"
+            )
+
+        try:
+            self._dag.add_edge(
+                self._node_indices[upstream],
+                downstream_index,
+                downstream_parameter_name,
+            )
+        except rx.DAGWouldCycle:
+            raise PipelineCycleError(
+                f"Connecting upstream step '{upstream.name}' to downstream step '{downstream.name}' would create a cycle"
+            )
+
+    def connect_many(
+        self,
+        upstream_steps: Sequence[Step],
+        downstream: Step,
+    ) -> None:
+        if not upstream_steps:
+            raise ValueError("connect_many requires at least one upstream step")
+        for upstream in upstream_steps:
+            self.connect(upstream, downstream)
+
+    def get_upstream_steps(self, step: Step) -> set[Step]:
+        return set(self._dag.predecessors(self._node_indices[step]))
+
+    def get_steps_in_execution_order(self) -> list[Step]:
+        node_indices = rx.topological_sort(self._dag)
+        return [self._dag[node_index] for node_index in node_indices]
+
+    def _validate_source_steps(self) -> None:
+        for step, step_index in self._node_indices.items():
+            if (
+                self._dag.in_degree(step_index) == 0
+                and step.transform.__transform_spec__.input_contracts
+            ):
+                raise PipelineExecutionError(
+                    f"first pipeline step '{step.name}' requires input dataframes; "
+                    "first steps should be read steps that produce a dataframe"
+                )
 
     def run(
         self, spark: SparkSession, context: PipelineContext | None = None
@@ -49,14 +199,18 @@ class ExecutablePipeline:
         if not isinstance(spark, SparkSession):
             raise TypeError("run() requires a SparkSession")
 
+        self._validate_source_steps()
+
         outputs: dict[str, DataFrame] = {}
-        for execution_step in self._execution_steps:
-            step = execution_step.step
-            arguments: dict[str, Any] = {
-                parameter_name: outputs[upstream_step.name]
-                for parameter_name, upstream_step in execution_step.dataframe_bindings
-            }
+
+        for step in self.get_steps_in_execution_order():
             spec = step.transform.__transform_spec__
+            arguments: dict[str, Any] = {}
+            step_index = self._node_indices[step]
+
+            for upstream_index, _, parameter_name in self._dag.in_edges(step_index):
+                upstream_step = self._dag[upstream_index]
+                arguments[parameter_name] = outputs[upstream_step.name]
             if spec.spark_parameter is not None:
                 arguments[spec.spark_parameter] = spark
 
@@ -95,186 +249,15 @@ class ExecutablePipeline:
 
         return outputs
 
-
-class Pipeline:
-    def __init__(self):
-        self._steps: dict[str, Step] = {}
-        self._validated = False
-        self._executable: ExecutablePipeline | None = None
-
-    def add_step(self, transform: Transform, name: str | None = None) -> Step:
-        self._ensure_mutable()
-        if name is None:
-            name = get_callable_name(transform)
-        if name is None:
-            raise ValueError(
-                f"Step name of '{transform}' could not be inferred. Pass name=<desired_name>"
-            )
-        if name in self._steps:
-            raise ValueError(f"step name '{name}' is already registered")
-
-        spec = transform.__transform_spec__
-        input_schemas = spec.input_contracts
-
-        spark_parameter = spec.spark_parameter
-        parameter_names = set(transform.get_signature().parameters)
-        supported_parameters = (
-            set(input_schemas)
-            | ({spark_parameter} if spark_parameter is not None else set())
-            | set(spec.context_parameters)
+    def visualize(self):
+        mpl_draw(
+            self._dag,
+            pos=topological_layout(self._dag),
+            with_labels=True,
+            labels=lambda node: node.name,
+            edge_labels=lambda edge: edge,
+            node_shape="s",
+            node_size=500,
+            font_size=8,
         )
-        unsupported_parameters = parameter_names - supported_parameters
-        if unsupported_parameters:
-            unsupported = sorted(unsupported_parameters)[0]
-            raise TypeError(
-                "pipeline steps only support SparkSession, annotated DataFrame, "
-                f"and Context-annotated parameters; unsupported parameter '{unsupported}'"
-            )
-
-        if not input_schemas and spark_parameter is None:
-            raise TypeError("source step must declare a SparkSession")
-
-        step = Step(
-            name=name,
-            transform=transform,
-            _pipeline=self,
-            _upstream_steps=[],
-            _explicit_bindings={},
-        )
-        self._steps[name] = step
-        return step
-
-    def connect(
-        self, upstream: Step, downstream: Step, *, param: str | None = None
-    ) -> None:
-        self._ensure_mutable()
-        self._ensure_owned(upstream)
-        self._ensure_owned(downstream)
-        if upstream not in downstream._upstream_steps:
-            downstream._upstream_steps.append(upstream)
-        if param is not None:
-            for other_upstream, other_param in downstream._explicit_bindings.items():
-                if other_param == param and other_upstream is not upstream:
-                    raise ValueError(
-                        f"step '{downstream.name}' parameter '{param}' is already "
-                        f"bound to upstream step '{other_upstream.name}'"
-                    )
-            downstream._explicit_bindings[upstream] = param
-
-    def connect_many(
-        self,
-        upstream_steps: Sequence[Step],
-        downstream: Step,
-    ) -> None:
-        self._ensure_mutable()
-        if not upstream_steps:
-            raise ValueError("connect_many requires at least one upstream step")
-        for upstream in upstream_steps:
-            self.connect(upstream, downstream)
-
-    def validate(self) -> ExecutablePipeline:
-        if self._executable is not None:
-            return self._executable
-
-        execution_steps: list[_ExecutionStep] = []
-        for step in self._topological_order():
-            spec = step.transform.__transform_spec__
-            bindings: list[tuple[str, Step]] = []
-            matched_upstream: set[Step] = set()
-            for parameter_name, expected_schema in spec.input_contracts.items():
-                explicit_upstream = next(
-                    (
-                        upstream
-                        for upstream, bound_param in step._explicit_bindings.items()
-                        if bound_param == parameter_name
-                    ),
-                    None,
-                )
-                if explicit_upstream is not None:
-                    if (
-                        explicit_upstream.transform.__transform_spec__.output_contract
-                        is None
-                        or explicit_upstream.transform.__transform_spec__.output_contract.schema.spark_schema
-                        != expected_schema.schema.spark_schema
-                    ):
-                        raise ValueError(
-                            f"step '{step.name}' parameter '{parameter_name}' is "
-                            f"explicitly bound to '{explicit_upstream.name}' but its "
-                            "output schema does not match"
-                        )
-                    bindings.append((parameter_name, explicit_upstream))
-                    matched_upstream.add(explicit_upstream)
-                    continue
-
-                candidates = [
-                    upstream
-                    for upstream in step._upstream_steps
-                    if upstream not in step._explicit_bindings
-                ]
-                matches = [
-                    upstream
-                    for upstream in candidates
-                    if upstream.transform.__transform_spec__.output_contract is not None
-                    and upstream.transform.__transform_spec__.output_contract.schema.spark_schema
-                    == expected_schema.schema.spark_schema
-                ]
-                if not matches:
-                    raise ValueError(
-                        f"step '{step.name}' parameter '{parameter_name}' has no "
-                        "upstream step provides a matching schema"
-                    )
-                if len(matches) > 1:
-                    names = ", ".join(upstream.name for upstream in matches)
-                    raise ValueError(
-                        f"step '{step.name}' has ambiguous upstream schema for "
-                        f"parameter '{parameter_name}': {names}"
-                    )
-                upstream = matches[0]
-                bindings.append((parameter_name, upstream))
-                matched_upstream.add(upstream)
-
-            unmatched = [
-                upstream
-                for upstream in step._upstream_steps
-                if upstream not in matched_upstream
-            ]
-            if unmatched:
-                names = ", ".join(upstream.name for upstream in unmatched)
-                raise ValueError(
-                    f"step '{step.name}' has upstream output that does not match "
-                    f"a parameter: {names}"
-                )
-
-            execution_steps.append(_ExecutionStep(step, tuple(bindings)))
-
-        self._validated = True
-        self._executable = ExecutablePipeline(execution_steps)
-        return self._executable
-
-    def _ensure_mutable(self) -> None:
-        if self._validated:
-            raise RuntimeError("pipeline has already been validated")
-
-    def _ensure_owned(self, step: Step) -> None:
-        if step._pipeline is not self:
-            raise ValueError("steps must belong to the same pipeline")
-
-    def _topological_order(self) -> list[Step]:
-        states: dict[Step, int] = {}
-        ordered: list[Step] = []
-
-        def visit(step: Step) -> None:
-            state = states.get(step, 0)
-            if state == 1:
-                raise ValueError("pipeline contains a cycle")
-            if state == 2:
-                return
-            states[step] = 1
-            for upstream in step._upstream_steps:
-                visit(upstream)
-            states[step] = 2
-            ordered.append(step)
-
-        for step in self._steps.values():
-            visit(step)
-        return ordered
+        plt.show()

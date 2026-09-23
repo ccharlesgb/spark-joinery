@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-from spark_joinery.pipeline import Pipeline, ExecutablePipeline
+from spark_joinery.pipeline import Pipeline
 
 from .collection import (
     get_current_snapshot,
@@ -14,7 +14,7 @@ DATA_DIR = Path(__file__).parent / "data"
 OUTPUT_DIR = Path(__file__).parent / "__output"
 
 
-def build_pipeline() -> ExecutablePipeline:
+def build_pipeline() -> Pipeline:
     pipeline = Pipeline()
     previous_snapshot = pipeline.add_step(
         get_previous_snapshot, "get_previous_snapshot"
@@ -30,4 +30,4 @@ def build_pipeline() -> ExecutablePipeline:
     pipeline.connect(current_snapshot, dimension_transitions, param="current_snapshot")
     pipeline.connect(dimension_transitions, output)
 
-    return pipeline.validate()
+    return pipeline

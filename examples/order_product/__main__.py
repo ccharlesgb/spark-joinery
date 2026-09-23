@@ -1,10 +1,10 @@
-from pyspark.sql import SparkSession
-
 from .pipeline import build_pipeline
 from spark_joinery.dependencies import PipelineContext
 from .context import OrdersPath, CustomersPath, OutputPath, RunDate
 from .pipeline import DATA_DIR, OUTPUT_DIR
 
+
+from pyspark.sql import SparkSession
 
 spark = (
     SparkSession.builder.appName("order-product-pipeline")
@@ -22,6 +22,8 @@ context = PipelineContext(
     ]
 )
 outputs = pipeline.run(spark, context)
-outputs["joined"].show()
+outputs["join_orders_with_customers"].show()
 
 spark.stop()
+
+pipeline.visualize()

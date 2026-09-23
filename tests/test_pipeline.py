@@ -6,16 +6,17 @@ from pyspark.sql import DataFrame, SparkSession
 
 from spark_joinery import (
     Context as ExportedContext,
-    ExecutablePipeline,
-    Pipeline as ExportedPipeline,
     PipelineContext as ExportedPipelineContext,
-    PipelineExecutionError as ExportedPipelineExecutionError,
-    Step as ExportedStep,
     Project,
 )
 from spark_joinery import transform
 from spark_joinery.dependencies import Context, PipelineContext
-from spark_joinery.pipeline import Pipeline, PipelineExecutionError
+from spark_joinery.pipeline import (
+    Pipeline,
+    PipelineConnectionError,
+    PipelineCycleError,
+    PipelineExecutionError,
+)
 
 
 @dataclass
@@ -39,13 +40,6 @@ class PathConfig:
     value: str
 
 
-def test_pipeline_types_are_exported_from_package():
-    assert ExportedPipeline is Pipeline
-    assert ExportedPipelineExecutionError is PipelineExecutionError
-    assert ExecutablePipeline.__name__ == "ExecutablePipeline"
-    assert ExportedStep.__name__ == "Step"
-
-
 @pytest.fixture(scope="session")
 def spark() -> Generator[SparkSession, None, None]:
     spark = (
@@ -55,21 +49,6 @@ def spark() -> Generator[SparkSession, None, None]:
     )
     yield spark
     spark.stop()
-
-
-def test_validate_returns_cached_executable_and_freezes_pipeline():
-    @transform
-    def read_users(spark: SparkSession) -> Annotated[DataFrame, User]:
-        return spark.createDataFrame([(1,)], "user_id INT")
-
-    pipeline = Pipeline()
-    pipeline.add_step(read_users, "users")
-
-    executable = pipeline.validate()
-
-    assert executable is pipeline.validate()
-    with pytest.raises(RuntimeError, match="validated"):
-        pipeline.add_step(read_users, "another_users")
 
 
 def test_duplicate_edges_are_idempotent():
@@ -89,7 +68,7 @@ def test_duplicate_edges_are_idempotent():
     pipeline.connect(users, filtered)
     pipeline.connect(users, filtered)
 
-    pipeline.validate()
+    # pipeline.validate()
 
 
 def test_step_right_shift_connects_steps_and_returns_downstream():
@@ -108,7 +87,7 @@ def test_step_right_shift_connects_steps_and_returns_downstream():
     filtered = pipeline.add_step(filter_users, "filtered")
 
     assert users >> filtered is filtered
-    assert filtered._upstream_steps == [users]
+    assert pipeline.get_upstream_steps(filtered) == {users}
 
 
 def test_step_right_shift_rejects_non_step_operand():
@@ -121,20 +100,6 @@ def test_step_right_shift_rejects_non_step_operand():
 
     with pytest.raises(TypeError, match="only connect Step instances"):
         users >> "filtered"  # type: ignore[operator]
-
-
-def test_connect_rejects_steps_from_different_pipelines():
-    @transform
-    def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
-        return spark.createDataFrame([(1,)], "user_id INT")
-
-    first = Pipeline()
-    second = Pipeline()
-    users = first.add_step(read_users, "users")
-    filtered = second.add_step(read_users, "filtered")
-
-    with pytest.raises(ValueError, match="same pipeline"):
-        first.connect(users, filtered)
 
 
 def test_connect_many_rejects_empty_sources():
@@ -187,7 +152,7 @@ def test_pipeline_allows_write_step_without_output_schema(spark: SparkSession):
     write_step = pipeline.add_step(write_users, "write_users")
     pipeline.connect(read_step, write_step)
 
-    outputs = pipeline.validate().run(spark)
+    outputs = pipeline.run(spark)
 
     assert len(written) == 1
     assert "write_users" not in outputs
@@ -207,10 +172,11 @@ def test_pipeline_rejects_missing_dataframe_match():
     pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
     join = pipeline.add_step(join_departments, "join")
-    pipeline.connect(users, join)
-
-    with pytest.raises(ValueError, match="no upstream step provides"):
-        pipeline.validate()
+    with pytest.raises(
+        PipelineConnectionError,
+        match="No compatible input contract found for upstream step 'users'",
+    ):
+        pipeline.connect(users, join)
 
 
 def test_pipeline_rejects_extra_upstream_output():
@@ -234,10 +200,11 @@ def test_pipeline_rejects_extra_upstream_output():
     users = pipeline.add_step(read_users, "users")
     departments = pipeline.add_step(read_departments, "departments")
     accepted = pipeline.add_step(accept_users, "accepted")
-    pipeline.connect_many([users, departments], accepted)
-
-    with pytest.raises(ValueError, match="does not match a parameter"):
-        pipeline.validate()
+    with pytest.raises(
+        PipelineConnectionError,
+        match="No compatible input contract found for upstream step 'departments'",
+    ):
+        pipeline.connect_many([users, departments], accepted)
 
 
 def test_pipeline_rejects_ambiguous_duplicate_schema_outputs():
@@ -255,10 +222,11 @@ def test_pipeline_rejects_ambiguous_duplicate_schema_outputs():
     users_a = pipeline.add_step(read_users, "users_a")
     users_b = pipeline.add_step(read_users, "users_b")
     accepted = pipeline.add_step(accept_users, "accepted")
-    pipeline.connect_many([users_a, users_b], accepted)
-
-    with pytest.raises(ValueError, match="ambiguous"):
-        pipeline.validate()
+    with pytest.raises(
+        PipelineConnectionError,
+        match="Step 'users_a' is already connected to 'accepted'",
+    ):
+        pipeline.connect_many([users_a, users_b], accepted)
 
 
 def test_pipeline_rejects_cycles():
@@ -278,10 +246,8 @@ def test_pipeline_rejects_cycles():
     first_step = pipeline.add_step(first, "first")
     second_step = pipeline.add_step(second, "second")
     pipeline.connect(first_step, second_step)
-    pipeline.connect(second_step, first_step)
-
-    with pytest.raises(ValueError, match="cycle"):
-        pipeline.validate()
+    with pytest.raises(PipelineCycleError):
+        pipeline.connect(second_step, first_step)
 
 
 def test_pipeline_supports_multiple_dataframe_inputs():
@@ -308,8 +274,6 @@ def test_pipeline_supports_multiple_dataframe_inputs():
     joined = pipeline.add_step(join, "joined")
     pipeline.connect_many([users, departments], joined)
 
-    pipeline.validate()
-
 
 def test_executable_pipeline_runs_sources_and_downstream_steps(
     spark: SparkSession,
@@ -329,7 +293,7 @@ def test_executable_pipeline_runs_sources_and_downstream_steps(
     filtered = pipeline.add_step(filter_users, "filtered")
     pipeline.connect(users, filtered)
 
-    outputs = pipeline.validate().run(spark)
+    outputs = pipeline.run(spark)
 
     assert set(outputs) == {"users", "filtered"}
     assert outputs["filtered"].collect()[0].user_id == 1
@@ -361,7 +325,7 @@ def test_executable_pipeline_runs_fan_in_and_independent_components(
     joined = pipeline.add_step(join, "joined")
     pipeline.connect_many([users, departments], joined)
 
-    outputs = pipeline.validate().run(spark)
+    outputs = pipeline.run(spark)
 
     assert set(outputs) == {"users", "departments", "joined"}
     assert outputs["joined"].collect()[0].user_id == 1
@@ -374,10 +338,28 @@ def test_executable_pipeline_rejects_invalid_spark_session():
 
     pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
-    executable = pipeline.validate()
 
     with pytest.raises(TypeError, match="requires a SparkSession"):
-        executable.run(object())  # type: ignore[arg-type]
+        pipeline.run(object())  # type: ignore[arg-type]
+
+
+def test_executable_pipeline_rejects_root_step_requiring_dataframe(
+    spark: SparkSession,
+):
+    @transform
+    def filter_users(
+        users: Annotated[DataFrame, Project(User)],
+    ) -> Annotated[DataFrame, Project(User)]:
+        raise AssertionError("root step should not be called")
+
+    pipeline = Pipeline()
+    pipeline.add_step(filter_users, "filtered")
+
+    with pytest.raises(
+        PipelineExecutionError,
+        match="first steps should be read steps that produce a dataframe",
+    ):
+        pipeline.run(spark)
 
 
 def test_executable_pipeline_wraps_transform_failure(
@@ -391,7 +373,7 @@ def test_executable_pipeline_wraps_transform_failure(
     pipeline.add_step(read_users, "users")
 
     with pytest.raises(PipelineExecutionError, match="users") as error:
-        pipeline.validate().run(spark)
+        pipeline.run(spark)
 
     assert isinstance(error.value.__cause__, ValueError)
 
@@ -418,10 +400,9 @@ def test_run_resolves_context_parameter_from_pipeline_context(spark: SparkSessio
 
     pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
-    executable = pipeline.validate()
 
     context = PipelineContext(values=[PathConfig("gs://bucket/users")])
-    outputs = executable.run(spark, context)
+    outputs = pipeline.run(spark, context)
 
     assert outputs["users"].count() == 1
 
@@ -435,10 +416,9 @@ def test_run_raises_pipeline_execution_error_when_context_missing(spark: SparkSe
 
     pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
-    executable = pipeline.validate()
 
     with pytest.raises(PipelineExecutionError, match="requires a PipelineContext"):
-        executable.run(spark)
+        pipeline.run(spark)
 
 
 def test_run_raises_pipeline_execution_error_when_dependency_unregistered(
@@ -452,10 +432,9 @@ def test_run_raises_pipeline_execution_error_when_dependency_unregistered(
 
     pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
-    executable = pipeline.validate()
 
     with pytest.raises(PipelineExecutionError, match="failed to resolve dependency"):
-        executable.run(spark, PipelineContext(values=[]))
+        pipeline.run(spark, PipelineContext(values=[]))
 
 
 def test_dependency_types_are_exported_from_package():

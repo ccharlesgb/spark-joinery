@@ -7,15 +7,11 @@ from datetime import timedelta
 
 from .context import SnapshottedDimensionPath, OutputPath, RunDate
 from .schemas import SnapshottedDimension, DimensionTransitions
-from spark_joinery.collection import Collection
 from spark_joinery.dependencies import Context
-from spark_joinery import Strict
+from spark_joinery import Strict, transform
 
 
-snapshot_diff = Collection()
-
-
-@snapshot_diff.transform
+@transform
 def read_snapshot(
     spark: SparkSession,
     path: Annotated[SnapshottedDimensionPath, Context()],
@@ -28,7 +24,7 @@ def read_snapshot(
     )
 
 
-@snapshot_diff.transform
+@transform
 def get_current_snapshot(
     spark: SparkSession,
     path: Annotated[SnapshottedDimensionPath, Context()],
@@ -37,7 +33,7 @@ def get_current_snapshot(
     return spark.read.parquet(path).filter(F.col("snapshot_date") == run_date)
 
 
-@snapshot_diff.transform
+@transform
 def get_previous_snapshot(
     spark: SparkSession,
     path: Annotated[SnapshottedDimensionPath, Context()],
@@ -47,7 +43,7 @@ def get_previous_snapshot(
     return spark.read.parquet(path).filter(F.col("snapshot_date") == yesterdays_date)
 
 
-@snapshot_diff.transform
+@transform
 def compute_dimension_transitions(
     previous_snapshot: Annotated[DataFrame, Strict(SnapshottedDimension)],
     current_snapshot: Annotated[DataFrame, Strict(SnapshottedDimension)],
@@ -74,7 +70,7 @@ def compute_dimension_transitions(
     )
 
 
-@snapshot_diff.transform
+@transform
 def write_output(
     order_with_customer_dimension: Annotated[DataFrame, Strict(DimensionTransitions)],
     path: Annotated[OutputPath, Context()],

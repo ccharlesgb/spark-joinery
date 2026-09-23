@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-import inspect
 from dataclasses import dataclass
-from typing import Any, Callable, ParamSpec, Sequence, TypeVar, overload
+from typing import Any, ParamSpec, Sequence, TypeVar
 
 from pyspark.sql import DataFrame, SparkSession
 
-from spark_joinery.transform import Contract
+from spark_joinery.transform import Transform
 from spark_joinery.utils import get_callable_name
 
-from .collection import Collection
-from .dependencies import Context, PipelineContext
+from .dependencies import PipelineContext
 
-Transform = Callable[..., DataFrame | None]
 P = ParamSpec("P")
 R = TypeVar("R")
 
@@ -26,10 +23,6 @@ class Step:
     name: str
     transform: Transform
     _pipeline: Pipeline
-    _input_contracts: dict[str, Contract]
-    _output_contract: Contract | None
-    _spark_parameter: str | None
-    _context_parameters: dict[str, tuple[type, Context]]
     _upstream_steps: list[Step]
     _explicit_bindings: dict[Step, str]
 
@@ -63,13 +56,14 @@ class ExecutablePipeline:
                 parameter_name: outputs[upstream_step.name]
                 for parameter_name, upstream_step in execution_step.dataframe_bindings
             }
-            if step._spark_parameter is not None:
-                arguments[step._spark_parameter] = spark
+            spec = step.transform.__transform_spec__
+            if spec.spark_parameter is not None:
+                arguments[spec.spark_parameter] = spark
 
             for parameter_name, (
                 param_type,
                 marker,
-            ) in step._context_parameters.items():
+            ) in spec.context_parameters.items():
                 if context is None:
                     raise PipelineExecutionError(
                         f"step '{step.name}' requires a PipelineContext but none was provided"
@@ -83,7 +77,7 @@ class ExecutablePipeline:
 
             try:
                 result = step.transform(**arguments)
-                if step._output_contract is not None and not isinstance(
+                if spec.output_contract is not None and not isinstance(
                     result, DataFrame
                 ):
                     raise TypeError(
@@ -103,40 +97,10 @@ class ExecutablePipeline:
 
 
 class Pipeline:
-    def __init__(self, collections: Sequence[Collection] = ()):
-        self._collection = Collection()
-        self._collections: tuple[Collection, ...] = (self._collection, *collections)
+    def __init__(self):
         self._steps: dict[str, Step] = {}
         self._validated = False
         self._executable: ExecutablePipeline | None = None
-
-    @overload
-    def transform(
-        self,
-        f: Callable[P, R],
-    ) -> Callable[P, R]: ...
-
-    @overload
-    def transform(
-        self,
-        f: None = None,
-    ) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
-
-    def transform(
-        self,
-        f: Callable[P, R] | None = None,
-    ) -> Callable[P, R] | Callable[[Callable[P, R]], Callable[P, R]]:
-        return self._collection.transform(
-            f,
-        )
-
-    def _resolve_spec(self, transform: Transform):
-        for collection in self._collections:
-            spec = collection._specs.get(transform)
-            if spec is not None:
-                return spec
-        name = getattr(transform, "__name__", repr(transform))
-        raise TypeError(f"'{name}' is not registered in this pipeline's collections")
 
     def add_step(self, transform: Transform, name: str | None = None) -> Step:
         self._ensure_mutable()
@@ -149,12 +113,11 @@ class Pipeline:
         if name in self._steps:
             raise ValueError(f"step name '{name}' is already registered")
 
-        spec = self._resolve_spec(transform)
+        spec = transform.__transform_spec__
         input_schemas = spec.input_contracts
-        output_schema = spec.output_contract
 
         spark_parameter = spec.spark_parameter
-        parameter_names = set(inspect.signature(transform).parameters)
+        parameter_names = set(transform.get_signature().parameters)
         supported_parameters = (
             set(input_schemas)
             | ({spark_parameter} if spark_parameter is not None else set())
@@ -175,10 +138,6 @@ class Pipeline:
             name=name,
             transform=transform,
             _pipeline=self,
-            _input_contracts=input_schemas,
-            _output_contract=output_schema,
-            _spark_parameter=spark_parameter,
-            _context_parameters=spec.context_parameters,
             _upstream_steps=[],
             _explicit_bindings={},
         )
@@ -219,9 +178,10 @@ class Pipeline:
 
         execution_steps: list[_ExecutionStep] = []
         for step in self._topological_order():
+            spec = step.transform.__transform_spec__
             bindings: list[tuple[str, Step]] = []
             matched_upstream: set[Step] = set()
-            for parameter_name, expected_schema in step._input_contracts.items():
+            for parameter_name, expected_schema in spec.input_contracts.items():
                 explicit_upstream = next(
                     (
                         upstream
@@ -232,8 +192,9 @@ class Pipeline:
                 )
                 if explicit_upstream is not None:
                     if (
-                        explicit_upstream._output_contract is None
-                        or explicit_upstream._output_contract.schema.spark_schema
+                        explicit_upstream.transform.__transform_spec__.output_contract
+                        is None
+                        or explicit_upstream.transform.__transform_spec__.output_contract.schema.spark_schema
                         != expected_schema.schema.spark_schema
                     ):
                         raise ValueError(
@@ -253,8 +214,8 @@ class Pipeline:
                 matches = [
                     upstream
                     for upstream in candidates
-                    if upstream._output_contract is not None
-                    and upstream._output_contract.schema.spark_schema
+                    if upstream.transform.__transform_spec__.output_contract is not None
+                    and upstream.transform.__transform_spec__.output_contract.schema.spark_schema
                     == expected_schema.schema.spark_schema
                 ]
                 if not matches:

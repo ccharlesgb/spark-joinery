@@ -1,4 +1,3 @@
-from .collection import Collection
 from .dependencies import Context, PipelineContext
 from .pipeline import (
     ExecutablePipeline,
@@ -17,7 +16,6 @@ from .transform import (
 from .schemas import Schema
 
 __all__ = [
-    "Collection",
     "Context",
     "ExecutablePipeline",
     "Pipeline",

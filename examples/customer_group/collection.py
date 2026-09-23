@@ -5,22 +5,18 @@ from pyspark.sql import functions as F
 
 from .context import CustomersPath, OutputPath
 from .schemas import Customer, CustomerGroup
-from spark_joinery.collection import Collection
 from spark_joinery.dependencies import Context
-from spark_joinery import Strict
+from spark_joinery import Strict, transform
 
 
-customer_group = Collection()
-
-
-@customer_group.transform
+@transform
 def read_customers(
     spark: SparkSession, path: Annotated[CustomersPath, Context()]
 ) -> Annotated[DataFrame, Strict(Customer)]:
     return spark.read.parquet(path)
 
 
-@customer_group.transform
+@transform
 def denormalise_group_id(
     customers: Annotated[DataFrame, Strict(Customer)],
 ) -> Annotated[DataFrame, Strict(CustomerGroup)]:
@@ -39,7 +35,7 @@ def denormalise_group_id(
     )
 
 
-@customer_group.transform
+@transform
 def write_output(
     order_with_customer_dimension: Annotated[DataFrame, Strict(CustomerGroup)],
     path: Annotated[OutputPath, Context()],

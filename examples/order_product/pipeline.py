@@ -6,7 +6,6 @@ from spark_joinery.pipeline import Pipeline, ExecutablePipeline
 from .collection import (
     filter_orders,
     join_orders_with_customers,
-    order_product,
     read_customers,
     read_orders,
     write_output,
@@ -17,7 +16,7 @@ OUTPUT_DIR = Path(__file__).parent / "__output"
 
 
 def build_pipeline() -> ExecutablePipeline:
-    pipeline = Pipeline(collections=[order_product])
+    pipeline = Pipeline()
     orders = pipeline.add_step(read_orders, "orders")
     filtered_orders = pipeline.add_step(filter_orders, "filtered_orders")
     customers = pipeline.add_step(read_customers, "customers")

@@ -6,7 +6,6 @@ from spark_joinery.pipeline import Pipeline, ExecutablePipeline
 from .collection import (
     get_current_snapshot,
     get_previous_snapshot,
-    snapshot_diff,
     compute_dimension_transitions,
     write_output,
 )
@@ -16,7 +15,7 @@ OUTPUT_DIR = Path(__file__).parent / "__output"
 
 
 def build_pipeline() -> ExecutablePipeline:
-    pipeline = Pipeline(collections=[snapshot_diff])
+    pipeline = Pipeline()
     previous_snapshot = pipeline.add_step(
         get_previous_snapshot, "get_previous_snapshot"
     )

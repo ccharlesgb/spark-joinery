@@ -5,6 +5,7 @@ from typing import (
     Annotated,
     Any,
     Callable,
+    Generic,
     Literal,
     ParamSpec,
     TypeVar,
@@ -198,29 +199,34 @@ def _wrap_transform(
     return wrapper
 
 
+class Transform(Generic[P, R]):
+    def __init__(self, fn: Callable[P, R]):
+        self._fn = fn
+        self.__transform_spec__ = _inspect_transform(fn)
+
+    def __call__(self, *args: P.args, **kwds: P.kwargs) -> R:
+        return _wrap_transform(self._fn, self.__transform_spec__)(*args, **kwds)
+
+    def get_signature(self) -> inspect.Signature:
+        return inspect.signature(self._fn)
+
+
 @overload
 def transform(
     f: Callable[P, R],
-) -> Callable[P, R]: ...
+) -> Transform[P, R]: ...
 
 
 @overload
 def transform(
     f: None = None,
-) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
+) -> Callable[[Callable[P, R]], Transform[P, R]]: ...
 
 
 def transform(
     f: Callable[P, R] | None = None,
-):
-    def decorator(fn: Callable[P, R]) -> Callable[P, R]:
-        spec = _inspect_transform(fn)
-        return _wrap_transform(
-            fn,
-            spec,
-        )
-
+) -> Transform[P, R] | Callable[[Callable[P, R]], Transform[P, R]]:
     if f is None:
-        return decorator
+        return Transform
 
-    return decorator(f)
+    return Transform(f)

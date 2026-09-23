@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from .collection import (
-    customer_group,
     read_customers,
     denormalise_group_id,
     write_output,
@@ -14,7 +13,7 @@ OUTPUT_DIR = Path(__file__).parent / "__output"
 
 
 def build_pipeline() -> ExecutablePipeline:
-    pipeline = Pipeline(collections=[customer_group])
+    pipeline = Pipeline()
 
     read_customers_step = pipeline.add_step(read_customers, "read_customers")
     denormalise_group_id_step = pipeline.add_step(

@@ -3,7 +3,7 @@ from datetime import date, datetime
 from pyspark.sql import DataFrame, SparkSession
 from typing import Annotated
 from pyspark.sql.types import DoubleType
-from spark_joinery import Pipeline, Schema, Strict
+from spark_joinery import Pipeline, Schema, Strict, transform
 
 
 @dataclass
@@ -20,10 +20,7 @@ class OrderMetrics:
     total_order_value: Annotated[float, DoubleType()]
 
 
-order_metrics = Pipeline()
-
-
-@order_metrics.transform
+@transform
 def read_orders(spark: SparkSession) -> Annotated[DataFrame, Strict(Orders)]:
     input_schema = Schema(Orders).spark_schema
     return spark.createDataFrame(
@@ -36,7 +33,7 @@ def read_orders(spark: SparkSession) -> Annotated[DataFrame, Strict(Orders)]:
     )
 
 
-@order_metrics.transform
+@transform
 def get_metrics(
     order_table: Annotated[DataFrame, Strict(Orders)],
 ) -> Annotated[DataFrame, Strict(OrderMetrics)]:
@@ -50,11 +47,12 @@ def get_metrics(
     )
 
 
-@order_metrics.transform
+@transform
 def print_metrics(metrics_table: Annotated[DataFrame, Strict(OrderMetrics)]) -> None:
     metrics_table.show()
 
 
+order_metrics = Pipeline()
 read_orders_step = order_metrics.add_step(read_orders)
 get_metrics_step = order_metrics.add_step(get_metrics)
 print_metrics_step = order_metrics.add_step(print_metrics)

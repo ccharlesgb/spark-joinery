@@ -13,7 +13,7 @@ from spark_joinery import (
     Step as ExportedStep,
     Project,
 )
-from spark_joinery.collection import Collection
+from spark_joinery import transform
 from spark_joinery.dependencies import Context, PipelineContext
 from spark_joinery.pipeline import Pipeline, PipelineExecutionError
 
@@ -58,13 +58,11 @@ def spark() -> Generator[SparkSession, None, None]:
 
 
 def test_validate_returns_cached_executable_and_freezes_pipeline():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, User]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
 
     executable = pipeline.validate()
@@ -75,19 +73,17 @@ def test_validate_returns_cached_executable_and_freezes_pipeline():
 
 
 def test_duplicate_edges_are_idempotent():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    @collection.transform
+    @transform
     def filter_users(
         users: Annotated[DataFrame, Project(User)],
     ) -> Annotated[DataFrame, Project(User)]:
         return users
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
     filtered = pipeline.add_step(filter_users, "filtered")
     pipeline.connect(users, filtered)
@@ -97,19 +93,17 @@ def test_duplicate_edges_are_idempotent():
 
 
 def test_step_right_shift_connects_steps_and_returns_downstream():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    @collection.transform
+    @transform
     def filter_users(
         users: Annotated[DataFrame, Project(User)],
     ) -> Annotated[DataFrame, Project(User)]:
         return users
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
     filtered = pipeline.add_step(filter_users, "filtered")
 
@@ -118,13 +112,11 @@ def test_step_right_shift_connects_steps_and_returns_downstream():
 
 
 def test_step_right_shift_rejects_non_step_operand():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
 
     with pytest.raises(TypeError, match="only connect Step instances"):
@@ -132,14 +124,12 @@ def test_step_right_shift_rejects_non_step_operand():
 
 
 def test_connect_rejects_steps_from_different_pipelines():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    first = Pipeline(collections=[collection])
-    second = Pipeline(collections=[collection])
+    first = Pipeline()
+    second = Pipeline()
     users = first.add_step(read_users, "users")
     filtered = second.add_step(read_users, "filtered")
 
@@ -148,13 +138,11 @@ def test_connect_rejects_steps_from_different_pipelines():
 
 
 def test_connect_many_rejects_empty_sources():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
 
     with pytest.raises(ValueError, match="at least one"):
@@ -162,9 +150,7 @@ def test_connect_many_rejects_empty_sources():
 
 
 def test_pipeline_rejects_unsupported_non_dataframe_parameter():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(
         spark: SparkSession, path: str
     ) -> Annotated[DataFrame, Project(User)]:
@@ -173,34 +159,30 @@ def test_pipeline_rejects_unsupported_non_dataframe_parameter():
     with pytest.raises(
         TypeError, match="only support SparkSession, annotated DataFrame"
     ):
-        Pipeline(collections=[collection]).add_step(read_users, "users")
+        Pipeline().add_step(read_users, "users")
 
 
 def test_pipeline_requires_spark_session_for_source():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def create_users() -> Annotated[DataFrame, Project(User)]:
         raise AssertionError
 
     with pytest.raises(TypeError, match="source step.*SparkSession"):
-        Pipeline(collections=[collection]).add_step(create_users, "users")
+        Pipeline().add_step(create_users, "users")
 
 
 def test_pipeline_allows_write_step_without_output_schema(spark: SparkSession):
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id BIGINT")
 
     written: list[DataFrame] = []
 
-    @collection.transform
+    @transform
     def write_users(users: Annotated[DataFrame, Project(User)]):
         written.append(users)
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     read_step = pipeline.add_step(read_users, "users")
     write_step = pipeline.add_step(write_users, "write_users")
     pipeline.connect(read_step, write_step)
@@ -212,19 +194,17 @@ def test_pipeline_allows_write_step_without_output_schema(spark: SparkSession):
 
 
 def test_pipeline_rejects_missing_dataframe_match():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    @collection.transform
+    @transform
     def join_departments(
         departments: Annotated[DataFrame, Project(Department)],
     ) -> Annotated[DataFrame, Project(Department)]:
         return departments
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
     join = pipeline.add_step(join_departments, "join")
     pipeline.connect(users, join)
@@ -234,25 +214,23 @@ def test_pipeline_rejects_missing_dataframe_match():
 
 
 def test_pipeline_rejects_extra_upstream_output():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    @collection.transform
+    @transform
     def read_departments(
         spark: SparkSession,
     ) -> Annotated[DataFrame, Project(Department)]:
         return spark.createDataFrame([(1,)], "department_id INT")
 
-    @collection.transform
+    @transform
     def accept_users(
         users: Annotated[DataFrame, Project(User)],
     ) -> Annotated[DataFrame, Project(User)]:
         return users
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
     departments = pipeline.add_step(read_departments, "departments")
     accepted = pipeline.add_step(accept_users, "accepted")
@@ -263,19 +241,17 @@ def test_pipeline_rejects_extra_upstream_output():
 
 
 def test_pipeline_rejects_ambiguous_duplicate_schema_outputs():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    @collection.transform
+    @transform
     def accept_users(
         users: Annotated[DataFrame, Project(User)],
     ) -> Annotated[DataFrame, Project(User)]:
         return users
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users_a = pipeline.add_step(read_users, "users_a")
     users_b = pipeline.add_step(read_users, "users_b")
     accepted = pipeline.add_step(accept_users, "accepted")
@@ -286,21 +262,19 @@ def test_pipeline_rejects_ambiguous_duplicate_schema_outputs():
 
 
 def test_pipeline_rejects_cycles():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def first(
         users: Annotated[DataFrame, Project(User)],
     ) -> Annotated[DataFrame, Project(User)]:
         return users
 
-    @collection.transform
+    @transform
     def second(
         users: Annotated[DataFrame, Project(User)],
     ) -> Annotated[DataFrame, Project(User)]:
         return users
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     first_step = pipeline.add_step(first, "first")
     second_step = pipeline.add_step(second, "second")
     pipeline.connect(first_step, second_step)
@@ -311,26 +285,24 @@ def test_pipeline_rejects_cycles():
 
 
 def test_pipeline_supports_multiple_dataframe_inputs():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    @collection.transform
+    @transform
     def read_departments(
         spark: SparkSession,
     ) -> Annotated[DataFrame, Project(Department)]:
         return spark.createDataFrame([(1,)], "department_id INT")
 
-    @collection.transform
+    @transform
     def join(
         users: Annotated[DataFrame, Project(User)],
         departments: Annotated[DataFrame, Project(Department)],
     ) -> Annotated[DataFrame, Project(UserWithDepartment)]:
         return users.join(departments)
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
     departments = pipeline.add_step(read_departments, "departments")
     joined = pipeline.add_step(join, "joined")
@@ -342,19 +314,17 @@ def test_pipeline_supports_multiple_dataframe_inputs():
 def test_executable_pipeline_runs_sources_and_downstream_steps(
     spark: SparkSession,
 ):
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(session: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return session.createDataFrame([(1,)], "user_id BIGINT")
 
-    @collection.transform
+    @transform
     def filter_users(
         users: Annotated[DataFrame, Project(User)],
     ) -> Annotated[DataFrame, Project(User)]:
         return users.filter("user_id = 1")
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
     filtered = pipeline.add_step(filter_users, "filtered")
     pipeline.connect(users, filtered)
@@ -368,26 +338,24 @@ def test_executable_pipeline_runs_sources_and_downstream_steps(
 def test_executable_pipeline_runs_fan_in_and_independent_components(
     spark: SparkSession,
 ):
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id BIGINT")
 
-    @collection.transform
+    @transform
     def read_departments(
         spark: SparkSession,
     ) -> Annotated[DataFrame, Project(Department)]:
         return spark.createDataFrame([(2,)], "department_id BIGINT")
 
-    @collection.transform
+    @transform
     def join(
         users: Annotated[DataFrame, Project(User)],
         departments: Annotated[DataFrame, Project(Department)],
     ) -> Annotated[DataFrame, Project(UserWithDepartment)]:
         return users.selectExpr("user_id", "cast(2 as BIGINT) as department_id")
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     users = pipeline.add_step(read_users, "users")
     departments = pipeline.add_step(read_departments, "departments")
     joined = pipeline.add_step(join, "joined")
@@ -400,13 +368,11 @@ def test_executable_pipeline_runs_fan_in_and_independent_components(
 
 
 def test_executable_pipeline_rejects_invalid_spark_session():
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         raise AssertionError
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
     executable = pipeline.validate()
 
@@ -417,13 +383,11 @@ def test_executable_pipeline_rejects_invalid_spark_session():
 def test_executable_pipeline_wraps_transform_failure(
     spark: SparkSession,
 ):
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
         raise ValueError("source failed")
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
 
     with pytest.raises(PipelineExecutionError, match="users") as error:
@@ -433,29 +397,26 @@ def test_executable_pipeline_wraps_transform_failure(
 
 
 def test_pipeline_accepts_context_annotated_parameter():
-    collection = Collection()
 
-    @collection.transform
+    @transform
     def read_users(
         spark: SparkSession, path: Annotated[PathConfig, Context()]
     ) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     pipeline.add_step(read_users, "users")  # must not raise
 
 
 def test_run_resolves_context_parameter_from_pipeline_context(spark: SparkSession):
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(
         spark: SparkSession, path: Annotated[PathConfig, Context()]
     ) -> Annotated[DataFrame, Project(User)]:
         assert path == PathConfig("gs://bucket/users")
         return spark.createDataFrame([(1,)], "user_id BIGINT")
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
     executable = pipeline.validate()
 
@@ -466,15 +427,13 @@ def test_run_resolves_context_parameter_from_pipeline_context(spark: SparkSessio
 
 
 def test_run_raises_pipeline_execution_error_when_context_missing(spark: SparkSession):
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(
         spark: SparkSession, path: Annotated[PathConfig, Context()]
     ) -> Annotated[DataFrame, Project(User)]:
         raise AssertionError
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
     executable = pipeline.validate()
 
@@ -485,15 +444,13 @@ def test_run_raises_pipeline_execution_error_when_context_missing(spark: SparkSe
 def test_run_raises_pipeline_execution_error_when_dependency_unregistered(
     spark: SparkSession,
 ):
-    collection = Collection()
-
-    @collection.transform
+    @transform
     def read_users(
         spark: SparkSession, path: Annotated[PathConfig, Context()]
     ) -> Annotated[DataFrame, Project(User)]:
         raise AssertionError
 
-    pipeline = Pipeline(collections=[collection])
+    pipeline = Pipeline()
     pipeline.add_step(read_users, "users")
     executable = pipeline.validate()
 

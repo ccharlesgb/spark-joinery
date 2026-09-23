@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/Users/connorcharles/code/spark-joinery/docs_src/learn/pipelines/index/pipeline_connect_mismatch.py", line 49, in <module>
+    order_metrics.connect(transform_data_step, write_data_step)
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+spark_joinery.pipeline.PipelineConnectionError: No compatible contract between steps 'transform_data' and 'write_data'
+

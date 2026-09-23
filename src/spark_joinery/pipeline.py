@@ -137,7 +137,7 @@ class Pipeline:
             downstream_parameter_name = list(compatible_specs.keys())[0]
         else:
             raise PipelineConnectionError(
-                f"No compatible input contract found for upstream step '{upstream.name}'"
+                f"No compatible contract between steps '{upstream.name}' and '{downstream.name}'"
             )
 
         downstream_index = self._node_indices[downstream]
@@ -226,7 +226,7 @@ class Pipeline:
                     arguments[parameter_name] = context.resolve(param_type, marker)
                 except KeyError as error:
                     raise PipelineExecutionError(
-                        f"step '{step.name}' failed to resolve dependency"
+                        f"step '{step.name}' failed to resolve dependency '{param_type.__name__}'"
                     ) from error
 
             try:

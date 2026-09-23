@@ -12,7 +12,10 @@ nav = [
     "learn/index.md",
     "learn/schemas.md",
     "learn/coercion.md",
-    "learn/transform.md",
+    { "Transformations" = [
+      "learn/transform/index.md",
+      "learn/transform/testing.md",
+    ]},
     { "Pipelines" = [
       "learn/pipelines/index.md",
       "learn/pipelines/context.md",

@@ -27,7 +27,7 @@ docs-serve:
     uv run zensical build --clean
     uv run zensical serve
 
-docs-build:
+docs-build: docs-examples
     uv run zensical build --clean
 
 docs-examples:

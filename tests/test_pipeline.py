@@ -174,7 +174,7 @@ def test_pipeline_rejects_missing_dataframe_match():
     join = pipeline.add_step(join_departments, "join")
     with pytest.raises(
         PipelineConnectionError,
-        match="No compatible input contract found for upstream step 'users'",
+        match="No compatible contract between steps 'users' and 'join'",
     ):
         pipeline.connect(users, join)
 
@@ -202,7 +202,7 @@ def test_pipeline_rejects_extra_upstream_output():
     accepted = pipeline.add_step(accept_users, "accepted")
     with pytest.raises(
         PipelineConnectionError,
-        match="No compatible input contract found for upstream step 'departments'",
+        match="No compatible contract between steps 'departments' and 'accepted'",
     ):
         pipeline.connect_many([users, departments], accepted)
 

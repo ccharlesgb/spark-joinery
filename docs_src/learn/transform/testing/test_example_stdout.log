@@ -4,7 +4,7 @@ rootdir: /Users/connorcharles/code/spark-joinery
 configfile: pyproject.toml
 collected 1 item
 
-docs_src/learn/transform/test_example.py F                               [100%]
+docs_src/learn/transform/testing/test_example.py F                       [100%]
 
 =================================== FAILURES ===================================
 _________________________ test_filter_active_customers _________________________
@@ -41,5 +41,5 @@ E       *** expected ***
 E         Row(customer_id='1', name='Alice', is_active=True)
 E       [31m! Row(customer_id='3', name='Charlie', is_active=False)[0m
 
-docs_src/learn/transform/test_example.py:45: PySparkAssertionError
+docs_src/learn/transform/testing/test_example.py:45: PySparkAssertionError
 ============================== 1 failed ===============================

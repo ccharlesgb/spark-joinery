@@ -1,6 +1,6 @@
 [project]
 name = "spark-joinery"
-version = "0.0.1"
+version = "0.0.2"
 description = "Schema safety for pyspark transformations"
 authors = [
     { name = "Connor Charles", email = "ccharles.gb@gmail.com" }

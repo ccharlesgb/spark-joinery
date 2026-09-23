@@ -28,7 +28,7 @@ docs-serve:
     uv run zensical serve
 
 docs-build:
-    uv run zensical build
+    uv run zensical build --clean
 
 docs-examples:
     uv run python scripts/run_docs_examples.py

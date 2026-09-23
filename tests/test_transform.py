@@ -13,7 +13,13 @@ from spark_joinery import (
     Project,
 )
 from spark_joinery.dependencies import Context
-from spark_joinery.transform import Contract, Transform, _inspect_transform, transform
+from spark_joinery.transform import (
+    Contract,
+    Transform,
+    TransformSpec,
+    _inspect_transform,
+    transform,
+)
 
 
 @dataclass
@@ -108,11 +114,17 @@ def test_transform_retains_inspected_specification():
     def my_function(input1: Annotated[DataFrame, Project(InputRow)]):
         return input1
 
-    assert isinstance(my_function, Transform)
-    assert (
-        my_function.__transform_spec__.input_contracts["input1"].schema.model
-        is InputRow
+    expected_spec = TransformSpec(
+        input_contracts={
+            "input1": Contract(schema=Schema(InputRow), coercion_mode="project")
+        },
+        output_contract=None,
+        spark_parameter=None,
+        context_parameters={},
     )
+
+    assert isinstance(my_function, Transform)
+    assert my_function.__transform_spec__ == expected_spec
 
 
 def test_transform_raises_for_input_schema_mismatch(spark: SparkSession):

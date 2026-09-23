@@ -8,7 +8,7 @@ import rustworkx as rx
 from rustworkx.visualization import mpl_draw
 
 from spark_joinery.dependencies import PipelineContext
-from spark_joinery.transform import Contract, Transform
+from spark_joinery.transform import Contract, PipelineContract, Transform, ValueContract
 from spark_joinery.visualisation import topological_layout
 
 
@@ -26,6 +26,19 @@ class PipelineCycleError(Exception):
 
 class PipelineConnectionError(Exception):
     pass
+
+
+def _contracts_are_compatible(
+    input_contract: PipelineContract,
+    output_contract: PipelineContract,
+) -> bool:
+    if isinstance(input_contract, Contract) and isinstance(output_contract, Contract):
+        return input_contract.is_compatible_with(output_contract)
+    if isinstance(input_contract, ValueContract) and isinstance(
+        output_contract, ValueContract
+    ):
+        return input_contract.is_compatible_with(output_contract)
+    return False
 
 
 @dataclass(eq=False, frozen=True)
@@ -116,9 +129,9 @@ class Pipeline:
                 f"upstream step '{upstream.name}' does not produce an output"
             )
 
-        compatible_specs: dict[str, Contract] = {}
+        compatible_specs: dict[str, PipelineContract] = {}
         for param_name, input_contract in downstream_spec.input_contracts.items():
-            if input_contract.is_compatible_with(upstream_contract):
+            if _contracts_are_compatible(input_contract, upstream_contract):
                 compatible_specs[param_name] = input_contract
 
         if len(compatible_specs) > 1:
@@ -201,7 +214,7 @@ class Pipeline:
 
         self._validate_source_steps()
 
-        outputs: dict[str, DataFrame] = {}
+        outputs: dict[str, Any] = {}
 
         for step in self.get_steps_in_execution_order():
             spec = step.transform.__transform_spec__
@@ -231,12 +244,6 @@ class Pipeline:
 
             try:
                 result = step.transform(**arguments)
-                if spec.output_contract is not None and not isinstance(
-                    result, DataFrame
-                ):
-                    raise TypeError(
-                        f"step '{step.name}' returned a non-DataFrame value"
-                    )
             except Exception as error:
                 if isinstance(error, PipelineExecutionError):
                     raise
@@ -244,7 +251,7 @@ class Pipeline:
                     f"Pipeline step '{step.name}' failed"
                 ) from error
 
-            if isinstance(result, DataFrame):
+            if result is not None:
                 outputs[step.name] = result
 
         return outputs

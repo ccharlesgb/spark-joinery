@@ -40,6 +40,11 @@ class PathConfig:
     value: str
 
 
+@dataclass(frozen=True)
+class FittedModel:
+    coefficient: float
+
+
 @pytest.fixture(scope="session")
 def spark() -> Generator[SparkSession, None, None]:
     spark = (
@@ -114,17 +119,14 @@ def test_connect_many_rejects_empty_sources():
         pipeline.connect_many([], users)
 
 
-def test_pipeline_rejects_unsupported_non_dataframe_parameter():
+def test_pipeline_accepts_typed_non_dataframe_parameter():
     @transform
     def read_users(
         spark: SparkSession, path: str
     ) -> Annotated[DataFrame, Project(User)]:
         return spark.createDataFrame([(1,)], "user_id INT")
 
-    with pytest.raises(
-        TypeError, match="only support SparkSession, annotated DataFrame"
-    ):
-        Pipeline().add_step(read_users, "users")
+    Pipeline().add_step(read_users, "users")
 
 
 def test_pipeline_requires_spark_session_for_source():
@@ -297,6 +299,34 @@ def test_executable_pipeline_runs_sources_and_downstream_steps(
 
     assert set(outputs) == {"users", "filtered"}
     assert outputs["filtered"].collect()[0].user_id == 1
+
+
+def test_executable_pipeline_passes_non_dataframe_outputs(spark: SparkSession):
+    @transform
+    def read_users(spark: SparkSession) -> Annotated[DataFrame, Project(User)]:
+        return spark.createDataFrame([(1,)], "user_id BIGINT")
+
+    @transform
+    def fit_model(users: Annotated[DataFrame, Project(User)]) -> FittedModel:
+        return FittedModel(coefficient=float(users.count()))
+
+    printed: list[FittedModel] = []
+
+    @transform
+    def print_coefficients(model: FittedModel) -> None:
+        printed.append(model)
+
+    pipeline = Pipeline()
+    users = pipeline.add_step(read_users, "users")
+    model = pipeline.add_step(fit_model, "model")
+    printer = pipeline.add_step(print_coefficients, "printer")
+    pipeline.connect(users, model)
+    pipeline.connect(model, printer)
+
+    outputs = pipeline.run(spark)
+
+    assert outputs["model"] == FittedModel(coefficient=1.0)
+    assert printed == [FittedModel(coefficient=1.0)]
 
 
 def test_executable_pipeline_runs_fan_in_and_independent_components(

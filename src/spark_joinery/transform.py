@@ -37,6 +37,17 @@ class Contract:
         return self.schema == other.schema
 
 
+@dataclass(frozen=True)
+class ValueContract:
+    value_type: type
+
+    def is_compatible_with(self, other: "ValueContract") -> bool:
+        return issubclass(other.value_type, self.value_type)
+
+
+PipelineContract = Contract | ValueContract
+
+
 def ProjectCast(schema: type) -> Contract:
     return Contract(coercion_mode="project_cast", schema=Schema(schema))
 
@@ -80,6 +91,10 @@ def _get_annotated_dataframe_schema(annotation: Any) -> Contract | None:
     return None
 
 
+def _is_annotated_dataframe(annotation: Any) -> bool:
+    return get_origin(annotation) is Annotated and get_args(annotation)[0] is DataFrame
+
+
 def _get_context_marker(annotation: Any) -> tuple[type, Context] | None:
     if get_origin(annotation) is not Annotated:
         return None
@@ -99,8 +114,8 @@ def _get_context_marker(annotation: Any) -> tuple[type, Context] | None:
 
 @dataclass(frozen=True)
 class TransformSpec:
-    input_contracts: dict[str, Contract]
-    output_contract: Contract | None
+    input_contracts: dict[str, PipelineContract]
+    output_contract: PipelineContract | None
     spark_parameter: str | None
     context_parameters: dict[str, tuple[type, Context]]
 
@@ -120,7 +135,7 @@ def _get_spark_parameter(f: Any) -> str | None:
 def _inspect_transform(f: Any) -> TransformSpec:
     signature = inspect.signature(f)
     type_hints = get_type_hints(f, include_extras=True)
-    input_schemas: dict[str, Contract] = {}
+    input_schemas: dict[str, PipelineContract] = {}
     context_parameters: dict[str, tuple[type, Context]] = {}
 
     for parameter_name in signature.parameters:
@@ -136,13 +151,21 @@ def _inspect_transform(f: Any) -> TransformSpec:
         context_marker = _get_context_marker(parameter_type)
         if context_marker is not None:
             context_parameters[parameter_name] = context_marker
+            continue
+
+        if parameter_type is not SparkSession and not _is_annotated_dataframe(
+            parameter_type
+        ):
+            input_schemas[parameter_name] = ValueContract(parameter_type)
 
     output_schema = None
     return_type = type_hints.get("return")
-    if return_type is not None:
+    if return_type is not None and return_type is not type(None):
         dataframe_schema = _get_annotated_dataframe_schema(return_type)
         if dataframe_schema is not None:
             output_schema = dataframe_schema
+        elif not _is_annotated_dataframe(return_type):
+            output_schema = ValueContract(return_type)
 
     return TransformSpec(
         input_contracts=input_schemas,
@@ -165,6 +188,14 @@ def _wrap_transform(
 
         for parameter_name, expected_contract in spec.input_contracts.items():
             value = bound_arguments.arguments.get(parameter_name)
+            if isinstance(expected_contract, ValueContract):
+                if not isinstance(value, expected_contract.value_type):
+                    raise TypeError(
+                        f"Parameter '{parameter_name}' must be a "
+                        f"{expected_contract.value_type.__name__}"
+                    )
+                continue
+
             if not isinstance(value, DataFrame):
                 raise TypeError(
                     f"Parameter '{parameter_name}' must be a pyspark.sql.DataFrame"
@@ -184,6 +215,14 @@ def _wrap_transform(
         result = fn(*bound_arguments.args, **bound_arguments.kwargs)
 
         if spec.output_contract is not None:
+            if isinstance(spec.output_contract, ValueContract):
+                if not isinstance(result, spec.output_contract.value_type):
+                    raise TypeError(
+                        f"Return value from '{fn.__name__}' must be a "
+                        f"{spec.output_contract.value_type.__name__}"
+                    )
+                return result
+
             if not isinstance(result, DataFrame):
                 raise TypeError(
                     f"Return value from '{fn.__name__}' must be a pyspark.sql.DataFrame"

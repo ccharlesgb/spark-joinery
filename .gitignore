@@ -17,6 +17,8 @@ venv/
 
 # Docs output
 site/
+docs_src/**/*.log
+
 
 # Editor temp
 tempCodeRunnerFile.py

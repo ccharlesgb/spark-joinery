@@ -1,9 +1,0 @@
-Traceback (most recent call last):
-  File "/Users/connorcharles/code/spark-joinery/docs_src/learn/coercion/dataclass_coercion_strict_null.py", line 27, in <module>
-    Schema(Customer).coerce_dataframe(df, mode="strict_null")
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
-spark_joinery.schemas.SchemaCoercionError: Cannot coerce dataframe using mode 'strict_null':
-  Nullable mismatches:
-    - customer_id: False -> True
-    - name: False -> True
-

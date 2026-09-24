@@ -37,5 +37,5 @@ order_metrics.connect(transform_data_step, write_data_step)
 
 try:
     order_metrics.run(spark=SparkSession.builder.getOrCreate())
-except Exception as e:
+except Exception:
     print(traceback.format_exc())

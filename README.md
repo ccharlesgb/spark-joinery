@@ -4,6 +4,8 @@
 
 **Documentation**: [https://ccharlesgb.github.io/spark-joinery/](https://ccharlesgb.github.io/spark-joinery/)
 
+**Examples**: [https://github.com/ccharlesgb/spark-joinery-examples](https://github.com/ccharlesgb/spark-joinery-examples)
+
 ---
 
 Spark Joinery is a small framework that allows you to build complex spark jobs with an emphasis on
